@@ -18,17 +18,28 @@
         </div>
         <h2>🔐 Panel Admin</h2>
 
-        <!-- LOGIN -->
+        <!-- LOGIN / REGISTRO -->
         <div id="loginPanel" class="card">
+            <h3 id="authTitle">👤 Iniciar sesión</h3>
+            <p class="small-text" style="margin-bottom:0.9rem;">Cada cuenta ve y controla solo sus propios Coyohoots.</p>
             <div class="input-group">
                 <label>👤 Usuario</label>
-                <input type="text" id="adminUser" placeholder="Usuario" autocomplete="off">
+                <input type="text" id="adminUser" placeholder="Ej: aldair" autocomplete="username" maxlength="32">
             </div>
             <div class="input-group">
                 <label>🔒 Contraseña</label>
-                <input type="password" id="adminPass" placeholder="Contraseña">
+                <input type="password" id="adminPass" placeholder="Contraseña" autocomplete="current-password" minlength="4">
             </div>
-            <button id="loginBtn" class="btn-primary full-w" style="margin-top:0.5rem;">Ingresar</button>
+            <div id="registerKeyWrap" class="input-group hidden">
+                <label>🗝️ Clave de registro</label>
+                <input type="password" id="registerKey" placeholder="Clave requerida solo al crear cuenta">
+                <p class="small-text" style="margin-top:0.35rem;">Esta clave solo se pide la primera vez que registras una cuenta.</p>
+            </div>
+            <div style="display:flex; gap:0.7rem; flex-wrap:wrap; margin-top:0.5rem;">
+                <button id="loginBtn" class="btn-primary" style="flex:1; min-width:150px;">Ingresar</button>
+                <button id="registerBtn" class="btn-outline" style="flex:1; min-width:150px;">Crear cuenta</button>
+            </div>
+            <button id="toggleAuthModeBtn" class="btn-outline full-w" style="margin-top:0.7rem;">Necesito registrarme</button>
             <div id="loginMsg" class="message hidden"></div>
             <div class="nav-buttons mt-1">
                 <a href="index.html" class="btn-outline">🏠 Inicio</a>
@@ -37,6 +48,13 @@
 
         <!-- PANEL PRINCIPAL -->
         <div id="adminPanel" class="hidden">
+            <div class="card" style="display:flex; justify-content:space-between; align-items:center; gap:0.8rem; flex-wrap:wrap;">
+                <div>
+                    <h3 style="margin-bottom:0.2rem;">🐺 Mis Coyohoots</h3>
+                    <p class="small-text" id="currentUserLabel">Sesión activa</p>
+                </div>
+                <button id="logoutBtnTop" class="btn-outline">🚪 Salir</button>
+            </div>
 
             <!-- SECCIÓN: Crear / editar quiz -->
             <div id="sectionEditor" class="card">
@@ -135,9 +153,6 @@
    COYOHOOT — Admin Panel
    ================================================ */
 
-const ADMIN_USER = "Aldair";
-const ADMIN_PASS = "Admin";
-
 // ── Estado local ──
 let questions         = [];
 let selectedQuizId    = null;
@@ -146,6 +161,9 @@ let gameUnsub         = null;
 let participantsUnsub = null;
 let rankingUnsub      = null;
 let currentGameMode   = 'clasico';  // modo del quiz que está siendo controlado
+let currentUser       = null;       // { uid, username }
+let authMode          = 'login';    // 'login' | 'register'
+const REGISTRATION_KEY = 'Nachito';
 
 // ── Reglas de supervivencia usadas también por el cierre de pregunta ──
 const SURVIVAL_INITIAL_LIVES = 3;
@@ -159,7 +177,14 @@ let currentTimerDeadline  = null;   // evita reiniciar el timer si el mismo dead
 const loginPanel          = document.getElementById('loginPanel');
 const adminPanel          = document.getElementById('adminPanel');
 const loginBtn            = document.getElementById('loginBtn');
+const registerBtn         = document.getElementById('registerBtn');
+const toggleAuthModeBtn   = document.getElementById('toggleAuthModeBtn');
+const registerKeyWrap     = document.getElementById('registerKeyWrap');
+const registerKeyInput    = document.getElementById('registerKey');
+const authTitle           = document.getElementById('authTitle');
+const currentUserLabel    = document.getElementById('currentUserLabel');
 const logoutBtn           = document.getElementById('logoutBtn');
+const logoutBtnTop        = document.getElementById('logoutBtnTop');
 const loginMsg            = document.getElementById('loginMsg');
 const quizNameInput       = document.getElementById('quizNameInput');
 const qContainer          = document.getElementById('questionsContainer');
@@ -292,32 +317,153 @@ modeSelector.addEventListener('click', (e) => {
 });
 
 // ════════════════════════════════════════════
-// LOGIN
+// LOGIN / REGISTRO DE ADMINISTRADORES
 // ════════════════════════════════════════════
-loginBtn.addEventListener('click', () => {
-    const u = document.getElementById('adminUser').value.trim();
-    const p = document.getElementById('adminPass').value;
-    if (u === ADMIN_USER && p === ADMIN_PASS) {
-        loginPanel.classList.add('hidden');
-        adminPanel.classList.remove('hidden');
-        initAdmin();
-    } else {
-        showMsg(loginMsg, '❌ Credenciales incorrectas.', 'error');
-    }
-});
-document.getElementById('adminPass').addEventListener('keydown', e => { if(e.key==='Enter') loginBtn.click(); });
-
-logoutBtn.addEventListener('click', () => {
+function normalizeUsername(username) {
+    return (username || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
+}
+function makeSalt() {
+    const arr = new Uint8Array(16);
+    crypto.getRandomValues(arr);
+    return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function sha256(text) {
+    const data = new TextEncoder().encode(text);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function setAuthMode(mode) {
+    authMode = mode;
+    const isRegister = mode === 'register';
+    authTitle.textContent = isRegister ? '📝 Crear cuenta' : '👤 Iniciar sesión';
+    registerKeyWrap.classList.toggle('hidden', !isRegister);
+    loginBtn.classList.toggle('hidden', isRegister);
+    registerBtn.classList.toggle('hidden', !isRegister);
+    toggleAuthModeBtn.textContent = isRegister ? 'Ya tengo cuenta' : 'Necesito registrarme';
+    loginMsg.classList.add('hidden');
+}
+function setLoggedIn(user) {
+    currentUser = user;
+    localStorage.setItem('coyohoot_admin_session', JSON.stringify(user));
+    currentUserLabel.textContent = `Sesión: ${user.username}`;
+    loginPanel.classList.add('hidden');
+    adminPanel.classList.remove('hidden');
+    initAdmin();
+}
+function clearAdminRuntime() {
     stopAdminTimer();
     if (gameUnsub) gameUnsub();
     if (participantsUnsub) participantsUnsub();
     if (rankingUnsub) rankingUnsub();
     gameUnsub = null; participantsUnsub = null; rankingUnsub = null;
+    selectedQuizId = null;
+    activeCtrl.classList.add('hidden');
+    sectionParticipants.classList.add('hidden');
+    sectionRanking.classList.add('hidden');
+}
+function logoutAdmin() {
+    clearAdminRuntime();
+    currentUser = null;
+    localStorage.removeItem('coyohoot_admin_session');
     adminPanel.classList.add('hidden');
     loginPanel.classList.remove('hidden');
     document.getElementById('adminUser').value = '';
     document.getElementById('adminPass').value = '';
-});
+    registerKeyInput.value = '';
+    setAuthMode('login');
+}
+async function loginAdmin() {
+    const rawUser = document.getElementById('adminUser').value.trim();
+    const uid = normalizeUsername(rawUser);
+    const pass = document.getElementById('adminPass').value;
+    if (!uid || uid.length < 3) { showMsg(loginMsg, '⚠️ Usuario mínimo de 3 caracteres.', 'warn'); return; }
+    if (!pass) { showMsg(loginMsg, '⚠️ Escribe tu contraseña.', 'warn'); return; }
+    loginBtn.disabled = true;
+    try {
+        const ref = db.collection('coyohoot_admin_users').doc(uid);
+        const snap = await ref.get();
+        if (!snap.exists) { showMsg(loginMsg, '❌ Ese usuario no existe. Regístrate primero.', 'error'); return; }
+        const u = snap.data() || {};
+        const hash = await sha256((u.salt || '') + pass);
+        if (hash !== u.passwordHash) { showMsg(loginMsg, '❌ Contraseña incorrecta.', 'error'); return; }
+        await ref.set({ lastLoginAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        setLoggedIn({ uid, username: u.username || rawUser });
+    } catch(e) {
+        showMsg(loginMsg, '❌ Error al iniciar sesión: ' + e.message, 'error');
+    } finally {
+        loginBtn.disabled = false;
+    }
+}
+async function registerAdmin() {
+    const rawUser = document.getElementById('adminUser').value.trim();
+    const uid = normalizeUsername(rawUser);
+    const pass = document.getElementById('adminPass').value;
+    const key = registerKeyInput.value.trim();
+    if (key !== REGISTRATION_KEY) { showMsg(loginMsg, '❌ Clave de registro incorrecta.', 'error'); return; }
+    if (!uid || uid.length < 3) { showMsg(loginMsg, '⚠️ Usuario mínimo de 3 caracteres. Usa letras, números, punto, guion o guion bajo.', 'warn'); return; }
+    if (pass.length < 4) { showMsg(loginMsg, '⚠️ La contraseña debe tener al menos 4 caracteres.', 'warn'); return; }
+    registerBtn.disabled = true;
+    try {
+        const ref = db.collection('coyohoot_admin_users').doc(uid);
+        const snap = await ref.get();
+        if (snap.exists) { showMsg(loginMsg, '⚠️ Ese usuario ya existe. Inicia sesión.', 'warn'); setAuthMode('login'); return; }
+        const salt = makeSalt();
+        const passwordHash = await sha256(salt + pass);
+        await ref.set({
+            username: rawUser,
+            normalizedUsername: uid,
+            salt,
+            passwordHash,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        setLoggedIn({ uid, username: rawUser });
+    } catch(e) {
+        showMsg(loginMsg, '❌ Error al registrar: ' + e.message, 'error');
+    } finally {
+        registerBtn.disabled = false;
+    }
+}
+function requireUser() {
+    if (!currentUser || !currentUser.uid) {
+        showMsg(loginMsg, '⚠️ Inicia sesión primero.', 'warn');
+        logoutAdmin();
+        return false;
+    }
+    return true;
+}
+function canManageQuiz(d) {
+    if (!currentUser) return false;
+    return !d.ownerId || d.ownerId === currentUser.uid;
+}
+async function requireQuizOwnership(quizId) {
+    if (!requireUser()) throw new Error('Sesión no válida.');
+    const snap = await db.collection('coyohoots').doc(quizId).get();
+    if (!snap.exists) throw new Error('El Coyohoot ya no existe.');
+    const d = snap.data() || {};
+    if (d.ownerId && d.ownerId !== currentUser.uid) throw new Error('Este Coyohoot pertenece a otra cuenta.');
+    return { snap, data: d };
+}
+
+loginBtn.addEventListener('click', loginAdmin);
+registerBtn.addEventListener('click', registerAdmin);
+toggleAuthModeBtn.addEventListener('click', () => setAuthMode(authMode === 'login' ? 'register' : 'login'));
+document.getElementById('adminPass').addEventListener('keydown', e => { if(e.key==='Enter') (authMode === 'register' ? registerAdmin() : loginAdmin()); });
+registerKeyInput.addEventListener('keydown', e => { if(e.key==='Enter') registerAdmin(); });
+logoutBtn.addEventListener('click', logoutAdmin);
+logoutBtnTop.addEventListener('click', logoutAdmin);
+
+(function restoreAdminSession(){
+    setAuthMode('login');
+    try {
+        const raw = localStorage.getItem('coyohoot_admin_session');
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (saved && saved.uid && saved.username) setLoggedIn(saved);
+    } catch(e) {
+        localStorage.removeItem('coyohoot_admin_session');
+    }
+})();
 
 // ════════════════════════════════════════════
 // EDITOR DE PREGUNTAS
@@ -402,6 +548,7 @@ clearEditorBtn.addEventListener('click', () => {
 
 // ── Guardar quiz en Firestore ──
 saveQuizBtn.addEventListener('click', async () => {
+    if (!requireUser()) return;
     readEditorValues();
     const name = quizNameInput.value.trim();
     if (!name) { showMsg(editorMsg, '⚠️ Ponle nombre al quiz.', 'warn'); return; }
@@ -417,6 +564,8 @@ saveQuizBtn.addEventListener('click', async () => {
     try {
         const quizData = {
             name,
+            ownerId: currentUser.uid,
+            ownerName: currentUser.username,
             questions,
             gameMode: selectedMode,
             roundState: 'pending',
@@ -433,6 +582,9 @@ saveQuizBtn.addEventListener('click', async () => {
             quizRef = db.collection('coyohoots').doc(selectedQuizId);
             const snap = await quizRef.get();
             const prev = snap.data();
+            if (prev && prev.ownerId && prev.ownerId !== currentUser.uid) {
+                throw new Error('Este Coyohoot pertenece a otra cuenta.');
+            }
             if (prev && prev.status !== 'waiting') {
                 quizData.status = 'waiting';
                 quizData.currentQuestion = -1;
@@ -458,16 +610,20 @@ saveQuizBtn.addEventListener('click', async () => {
 // LISTA DE QUIZZES GUARDADOS
 // ════════════════════════════════════════════
 async function loadSavedQuizzes() {
+    if (!requireUser()) return;
     emptyEl(savedQuizList);
     savedQuizList.innerHTML = '<p class="small-text pulse">Cargando quizzes...</p>';
     try {
         const snap = await db.collection('coyohoots').get();
         emptyEl(savedQuizList);
         const docs = [];
-        snap.forEach(doc => docs.push({ doc, data: doc.data() || {} }));
+        snap.forEach(doc => {
+            const data = doc.data() || {};
+            if (data.ownerId === currentUser.uid || !data.ownerId) docs.push({ doc, data });
+        });
         docs.sort(sortByCreatedDesc);
         if (docs.length === 0) {
-            savedQuizList.innerHTML = '<p class="small-text">No hay quizzes guardados aún.</p>';
+            savedQuizList.innerHTML = '<p class="small-text">No tienes Coyohoots guardados aún.</p>';
             return;
         }
         docs.forEach(({ doc, data: d }) => {
@@ -481,12 +637,14 @@ async function loadSavedQuizzes() {
                     ${escapeHtml(d.name)}
                     <span class="mode-badge mode-${mode}" style="margin-left:0.4rem; font-size:0.65rem; padding:0.15rem 0.5rem;">${getModeEmoji(mode)} ${getModeLabel(mode)}</span>
                     <span style="color:${statusColor}; font-size:0.7rem; margin-left:0.3rem;">[${st}]</span>
+                    ${!d.ownerId ? '<span style="display:inline-block; margin-left:0.35rem; color:#fbbf24; font-size:0.68rem;">sin dueño</span>' : ''}
                 </span>
                 <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
-                    ${shouldShowStopAction(d) ? `<button style="padding:0.3rem 0.8rem; font-size:0.75rem;" class="btn-danger" onclick="stopQuizFromList('${doc.id}')">⏹️ Detener</button>` : ''}
-                    <button style="padding:0.3rem 0.8rem; font-size:0.75rem;" class="btn-outline" onclick="selectQuiz('${doc.id}')">🎮 Controlar</button>
-                    <button style="padding:0.3rem 0.8rem; font-size:0.75rem;" class="btn-outline" onclick="editQuiz('${doc.id}')">✏️ Editar</button>
-                    <button style="padding:0.3rem 0.8rem; font-size:0.75rem;" class="btn-danger" onclick="deleteQuiz('${doc.id}')">🗑️</button>
+                    ${!d.ownerId ? `<button style="padding:0.3rem 0.8rem; font-size:0.75rem;" class="btn-success" onclick="claimQuiz('${doc.id}')">🙋 Adoptar</button>` : ''}
+                    ${d.ownerId === currentUser.uid && shouldShowStopAction(d) ? `<button style="padding:0.3rem 0.8rem; font-size:0.75rem;" class="btn-danger" onclick="stopQuizFromList('${doc.id}')">⏹️ Detener</button>` : ''}
+                    ${d.ownerId === currentUser.uid ? `<button style="padding:0.3rem 0.8rem; font-size:0.75rem;" class="btn-outline" onclick="selectQuiz('${doc.id}')">🎮 Controlar</button>` : ''}
+                    ${d.ownerId === currentUser.uid ? `<button style="padding:0.3rem 0.8rem; font-size:0.75rem;" class="btn-outline" onclick="editQuiz('${doc.id}')">✏️ Editar</button>` : ''}
+                    ${d.ownerId === currentUser.uid ? `<button style="padding:0.3rem 0.8rem; font-size:0.75rem;" class="btn-danger" onclick="deleteQuiz('${doc.id}')">🗑️</button>` : ''}
                 </div>
             `;
             savedQuizList.appendChild(div);
@@ -496,10 +654,39 @@ async function loadSavedQuizzes() {
     }
 }
 
+
+window.claimQuiz = async function(id) {
+    if (!requireUser()) return;
+    if (!confirm('¿Adoptar este Coyohoot antiguo? Desde ese momento solo aparecerá en tu cuenta.')) return;
+    try {
+        const ref = db.collection('coyohoots').doc(id);
+        const snap = await ref.get();
+        if (!snap.exists) return;
+        const d = snap.data() || {};
+        if (d.ownerId && d.ownerId !== currentUser.uid) {
+            alert('Este Coyohoot ya pertenece a otra cuenta.');
+            loadSavedQuizzes();
+            return;
+        }
+        await ref.set({
+            ownerId: currentUser.uid,
+            ownerName: currentUser.username,
+            claimedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        loadSavedQuizzes();
+        showMsg(editorMsg, '✅ Coyohoot adoptado por tu cuenta.', 'success');
+    } catch(e) {
+        alert('Error al adoptar: ' + e.message);
+    }
+};
+
 window.editQuiz = async function(id) {
-    const snap = await db.collection('coyohoots').doc(id).get();
-    if (!snap.exists) return;
-    const d = snap.data();
+    let snap, d;
+    try {
+        const owned = await requireQuizOwnership(id);
+        snap = owned.snap; d = owned.data;
+        if (!d.ownerId) { alert('Primero adopta este Coyohoot antiguo para editarlo.'); return; }
+    } catch(e) { alert(e.message); return; }
     selectedQuizId = id;
     quizNameInput.value = d.name || '';
     selectedMode = quizModeOf(d);
@@ -517,6 +704,10 @@ window.editQuiz = async function(id) {
 };
 
 window.deleteQuiz = async function(id) {
+    try {
+        const owned = await requireQuizOwnership(id);
+        if (!owned.data.ownerId) { alert('Primero adopta este Coyohoot antiguo para eliminarlo.'); return; }
+    } catch(e) { alert(e.message); return; }
     if (!confirm('¿Eliminar este quiz y todos sus datos?')) return;
     try {
         const cols = ['participants','responses'];
@@ -544,7 +735,11 @@ window.deleteQuiz = async function(id) {
 // ════════════════════════════════════════════
 // CONTROL DEL QUIZ SELECCIONADO
 // ════════════════════════════════════════════
-window.selectQuiz = function(id) {
+window.selectQuiz = async function(id) {
+    try {
+        const owned = await requireQuizOwnership(id);
+        if (!owned.data.ownerId) { alert('Primero adopta este Coyohoot antiguo para controlarlo.'); return; }
+    } catch(e) { alert(e.message); return; }
     if (gameUnsub) { gameUnsub(); gameUnsub = null; }
     if (participantsUnsub) { participantsUnsub(); participantsUnsub = null; }
     if (rankingUnsub) { rankingUnsub(); rankingUnsub = null; }
@@ -972,6 +1167,8 @@ async function stopQuiz(quizId, { askConfirm = true } = {}) {
     if (!quizId) return;
     if (askConfirm && !confirm('¿Detener el Coyohoot? Se cerrará la sesión activa, se bloquearán respuestas nuevas y dejará de aparecer como activo para participantes.')) return;
     try {
+        const owned = await requireQuizOwnership(quizId);
+        if (!owned.data.ownerId) throw new Error('Primero adopta este Coyohoot antiguo para detenerlo.');
         if (quizId === selectedQuizId) stopAdminTimer();
         await db.collection('coyohoots').doc(quizId).update({
             status: 'stopped',
@@ -1041,6 +1238,8 @@ resetQuizBtn.addEventListener('click', async () => {
     if (!selectedQuizId) return;
     if (!confirm('¿Reiniciar quiz? Se borrarán participantes, respuestas y puntajes. La sesión iniciará desde cero.')) return;
     try {
+        const owned = await requireQuizOwnership(selectedQuizId);
+        if (!owned.data.ownerId) throw new Error('Primero adopta este Coyohoot antiguo para reiniciarlo.');
         stopAdminTimer();
         await cleanSession(selectedQuizId);
         showMsg(controlMsg, '🔁 Quiz reiniciado. Sesión limpia lista.', 'success');

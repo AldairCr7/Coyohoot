@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coyohoot | Admin</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div class="page-container">
+    <div class="top-bar"></div>
+    <div class="content">
+        <div class="logo-container">
+            <img src="logo.jpeg" alt="Logo" class="logo">
+        </div>
+        <h2>🔐 Panel Admin</h2>
+
+        <!-- LOGIN -->
+        <div id="loginPanel" class="card">
+            <div class="input-group">
+                <label>👤 Usuario</label>
+                <input type="text" id="adminUser" placeholder="Usuario" autocomplete="off">
+            </div>
+            <div class="input-group">
+                <label>🔒 Contraseña</label>
+                <input type="password" id="adminPass" placeholder="Contraseña">
+            </div>
+            <button id="loginBtn" class="btn-primary full-w" style="margin-top:0.5rem;">Ingresar</button>
+            <div id="loginMsg" class="message hidden"></div>
+            <div class="nav-buttons mt-1">
+                <a href="index.html" class="btn-outline">🏠 Inicio</a>
+            </div>
+        </div>
+
+        <!-- PANEL PRINCIPAL -->
+        <div id="adminPanel" class="hidden">
+
+            <!-- SECCIÓN: Crear / editar quiz -->
+            <div id="sectionEditor" class="card">
+                <h3>📝 Editor de Coyohoot</h3>
+                <div class="input-group mt-1">
+                    <label>Nombre del quiz</label>
+                    <input type="text" id="quizNameInput" placeholder="Ej: Quiz de Redes">
+                </div>
+                <div class="input-group">
+                    <label>🎮 Modo de juego</label>
+                    <div class="mode-selector" id="modeSelector">
+                        <div class="mode-option selected" data-mode="clasico">
+                            <div class="mode-emoji">🎯</div>
+                            <div class="mode-title">Clásico</div>
+                            <div class="mode-desc">Responde rápido para sumar más puntos. Quien más acumule gana.</div>
+                        </div>
+                        <div class="mode-option" data-mode="supervivencia">
+                            <div class="mode-emoji">❤️</div>
+                            <div class="mode-title">Supervivencia</div>
+                            <div class="mode-desc">3 vidas. Pierdes 1 al fallar, ganas 1 cada 3 aciertos seguidos.</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="questionsContainer"></div>
+                <button id="addQuestionBtn" class="btn-outline full-w mt-1">➕ Agregar pregunta</button>
+                <div style="display:flex; gap:0.7rem; margin-top:1rem; flex-wrap:wrap;">
+                    <button id="saveQuizBtn" class="btn-success">💾 Guardar Quiz</button>
+                    <button id="clearEditorBtn" class="btn-outline">🔄 Limpiar</button>
+                </div>
+                <div id="editorMsg" class="message hidden"></div>
+            </div>
+
+            <!-- SECCIÓN: Quiz guardados / control -->
+            <div id="sectionControl" class="card">
+                <h3>🎮 Control del Quiz</h3>
+                <div id="savedQuizList" class="mt-1 scrollable"></div>
+                <hr>
+                <div id="activeQuizControl" class="hidden">
+                    <div id="quizStatusArea" style="margin-bottom:0.8rem;"></div>
+
+                    <!-- TIMER DEL ADMIN (nuevo) -->
+                    <div id="adminTimerWrap" style="display:none; flex-direction:column; align-items:center; margin-bottom:1rem;">
+                        <div class="timer-ring-wrap">
+                            <div class="timer-display" id="adminTimerDisplay">--</div>
+                        </div>
+                        <span style="font-size:0.72rem; color:#64748b; margin-top:0.2rem;">segundos restantes</span>
+                    </div>
+
+                    <div style="display:flex; gap:0.6rem; flex-wrap:wrap; justify-content:center;">
+                        <button id="startQuizBtn" class="btn-primary">📖 Preparar (mostrar instrucciones)</button>
+                        <button id="beginGameBtn" class="btn-success hidden">▶️ Iniciar partida</button>
+                        <button id="openStageBtn" class="btn-outline hidden">🖥️ Abrir pantalla en vivo</button>
+                        <button id="showAvatarWallBtn" class="btn-outline hidden">👥 Mostrar avatares</button>
+                        <button id="nextQuestionBtn" class="btn-primary hidden">⏭️ Siguiente Pregunta</button>
+                        <button id="showRankingBtn" class="btn-outline hidden">📊 Ver Ranking</button>
+                        <button id="stopQuizBtn" class="btn-danger hidden">⏹️ Detener Coyohoot</button>
+                        <button id="resetQuizBtn" class="btn-danger">🔁 Reiniciar</button>
+                    </div>
+                    <div id="instructionsPreview" class="card hidden" style="margin-top:1rem; text-align:left;">
+                        <h3 style="font-size:0.95rem;">📖 Instrucciones que verán los jugadores</h3>
+                        <div id="instructionsPreviewBody"></div>
+                    </div>
+                    <div id="controlMsg" class="message hidden mt-1"></div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN: Participantes en vivo -->
+            <div id="sectionParticipants" class="card hidden">
+                <h3>👥 Participantes (<span id="participantCount">0</span>)</h3>
+                <div id="participantChips" class="participant-chips mt-1"></div>
+            </div>
+
+            <!-- SECCIÓN: Ranking actual -->
+            <div id="sectionRanking" class="card hidden">
+                <h3>🏆 Ranking</h3>
+                <div id="rankingTableWrap" class="scrollable mt-1">
+                    <table class="ranking-table" id="adminRankingTable">
+                        <thead id="adminRankingHead"><tr><th>#</th><th>Nombre</th><th>Puntos</th></tr></thead>
+                        <tbody id="rankingBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="nav-buttons">
+                <a href="index.html" class="btn-outline">🏠 Inicio</a>
+                <button id="logoutBtn" class="btn-outline">🚪 Salir</button>
+            </div>
+        </div>
+    </div>
+    <div class="top-bar" style="margin-top:1rem;"></div>
+</div>
+
+<script src="firebase.js"></script>
+<script>
+/* ================================================
+   COYOHOOT — Admin Panel
+   ================================================ */
+
+const ADMIN_USER = "Aldair";
+const ADMIN_PASS = "Admin";
+
+// ── Estado local ──
+let questions         = [];
+let selectedQuizId    = null;
+let selectedMode      = 'clasico';  // modo del editor: 'clasico' | 'supervivencia'
+let gameUnsub         = null;
+let participantsUnsub = null;
+let rankingUnsub      = null;
+let currentGameMode   = 'clasico';  // modo del quiz que está siendo controlado
+
+// ── Reglas de supervivencia usadas también por el cierre de pregunta ──
+const SURVIVAL_INITIAL_LIVES = 3;
+
+// ── Timer admin ──
+let adminTimerInterval    = null;
+let autoRankingScheduled  = false;
+let currentTimerDeadline  = null;   // evita reiniciar el timer si el mismo deadline llega de nuevo
+
+// ── DOM ──
+const loginPanel          = document.getElementById('loginPanel');
+const adminPanel          = document.getElementById('adminPanel');
+const loginBtn            = document.getElementById('loginBtn');
+const logoutBtn           = document.getElementById('logoutBtn');
+const loginMsg            = document.getElementById('loginMsg');
+const quizNameInput       = document.getElementById('quizNameInput');
+const qContainer          = document.getElementById('questionsContainer');
+const addQBtn             = document.getElementById('addQuestionBtn');
+const saveQuizBtn         = document.getElementById('saveQuizBtn');
+const clearEditorBtn      = document.getElementById('clearEditorBtn');
+const editorMsg           = document.getElementById('editorMsg');
+const savedQuizList       = document.getElementById('savedQuizList');
+const activeCtrl          = document.getElementById('activeQuizControl');
+const quizStatusArea      = document.getElementById('quizStatusArea');
+const startQuizBtn        = document.getElementById('startQuizBtn');
+const nextQBtn            = document.getElementById('nextQuestionBtn');
+const showRankBtn         = document.getElementById('showRankingBtn');
+const stopQuizBtn         = document.getElementById('stopQuizBtn');
+const resetQuizBtn        = document.getElementById('resetQuizBtn');
+const controlMsg          = document.getElementById('controlMsg');
+const participantCountEl  = document.getElementById('participantCount');
+const participantChips    = document.getElementById('participantChips');
+const rankingBody         = document.getElementById('rankingBody');
+const sectionParticipants = document.getElementById('sectionParticipants');
+const sectionRanking      = document.getElementById('sectionRanking');
+const adminTimerWrap      = document.getElementById('adminTimerWrap');
+const adminTimerDisplay   = document.getElementById('adminTimerDisplay');
+const modeSelector        = document.getElementById('modeSelector');
+const beginGameBtn        = document.getElementById('beginGameBtn');
+const openStageBtn        = document.getElementById('openStageBtn');
+const showAvatarWallBtn   = document.getElementById('showAvatarWallBtn');
+const instructionsPreview = document.getElementById('instructionsPreview');
+const instructionsPreviewBody = document.getElementById('instructionsPreviewBody');
+const adminRankingHead    = document.getElementById('adminRankingHead');
+
+// ── Helpers ──
+
+const AVATAR_CATALOG = [
+    { id: 1, name: 'El Vice',  path: 'Avatares/Avatar1.svg' },
+    { id: 2, name: 'El Presi', path: 'Avatares/Avatar2.svg' },
+    { id: 3, name: 'La Secre', path: 'Avatares/Avatar3.svg' },
+    { id: 4, name: 'Nacho',    path: 'Avatares/Avatar4.svg' },
+    { id: 5, name: 'Coyote',   path: 'Avatares/Avatar5.svg' },
+    { id: 6, name: 'Hacker',   path: 'Avatares/Avatar6.svg' },
+    { id: 7, name: 'Ninja',    path: 'Avatares/Avatar7.svg' },
+    { id: 8, name: 'Astro',    path: 'Avatares/Avatar8.svg' }
+];
+function getAvatarById(id) { return AVATAR_CATALOG.find(a => a.id === Number(id)) || AVATAR_CATALOG[0]; }
+function adminAvatarHtml(pd, className='avatar-img-mini') {
+    const av = getAvatarById(pd && pd.avatarId || 1);
+    const src = (pd && (pd.avatarPath || (typeof pd.avatar === 'string' && pd.avatar.indexOf('/') >= 0 ? pd.avatar : null))) || av.path;
+    if (src && /\.(svg|png|jpe?g|webp|gif)$/i.test(src)) return `<img src="${escapeHtml(src)}" alt="" class="${className}" loading="lazy" onerror="this.style.display='none'">`;
+    return `<span class="player-avatar-fallback">${escapeHtml(pd && pd.avatar || '🐺')}</span>`;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function showMsg(el, text, type='') {
+    el.textContent = text;
+    el.className = 'message' + (type ? ' msg-' + type : '');
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 5000);
+}
+function emptyEl(el) { el.innerHTML = ''; }
+function normalizedStatus(d) {
+    return d.status || (Array.isArray(d.questions) ? 'waiting' : 'archived');
+}
+function shouldShowStopAction(d) {
+    const st = normalizedStatus(d);
+    if (st === 'stopped' || st === 'finished' || st === 'archived') return false;
+    return st === 'active' || d.isRunning === true || d.roundState === 'instructions' || d.roundState === 'playing' || d.showRanking === true;
+}
+function quizModeOf(d) {
+    const raw = (d.gameMode || d.mode || d.modo || '').toString().toLowerCase();
+    return raw === 'supervivencia' || raw === 'survival' ? 'supervivencia' : 'clasico';
+}
+function sortByCreatedDesc(a, b) {
+    const av = a.data.createdAt && typeof a.data.createdAt.toMillis === 'function' ? a.data.createdAt.toMillis() : 0;
+    const bv = b.data.createdAt && typeof b.data.createdAt.toMillis === 'function' ? b.data.createdAt.toMillis() : 0;
+    if (av !== bv) return bv - av;
+    return (a.data.name || '').localeCompare(b.data.name || '');
+}
+
+// ── Helpers reutilizables de modo (compartidos con clasico/supervivencia) ──
+function getModeLabel(mode) {
+    return mode === 'supervivencia' ? 'Supervivencia' : 'Clásico';
+}
+function getModeEmoji(mode) {
+    return mode === 'supervivencia' ? '❤️' : '🎯';
+}
+function getModeInstructions(mode) {
+    if (mode === 'supervivencia') {
+        return [
+            'Empiezas con <strong>3 vidas</strong>. Cada vida cuenta.',
+            'Si <strong>fallas una pregunta</strong>, pierdes <strong>1 vida</strong>.',
+            'Si <strong>aciertas 3 preguntas consecutivas</strong>, ganas <strong>1 vida extra</strong>.',
+            'Si te quedas <strong>sin vidas</strong>, quedas eliminado y verás el quiz como espectador.',
+            'El <strong>ranking ordena</strong> a los jugadores por vidas restantes, aciertos y puntaje.',
+            'Responde con cabeza: aquí no se trata solo de ir rápido. Se trata de <strong>sobrevivir</strong>. 🐺'
+        ];
+    }
+    return [
+        'Responde cada pregunta antes de que termine el <strong>tiempo</strong>.',
+        'Cuanto <strong>más rápido</strong> aciertes, <strong>más puntos</strong> ganas (máximo 1500).',
+        'Si fallas, no ganas puntos en esa pregunta, pero <strong>sigues en juego</strong>.',
+        'El ranking se actualiza en <strong>tiempo real</strong> después de cada pregunta.',
+        'Gana quien sume <strong>más puntos</strong> al terminar el Coyohoot.',
+        '¡Suerte, coyote! 🐺'
+    ];
+}
+function renderInstructionsInto(container, mode) {
+    const items = getModeInstructions(mode);
+    const cls   = mode === 'supervivencia' ? 'instructions-list survival' : 'instructions-list';
+    const html  = `
+        <div class="instructions-panel">
+            <div style="margin-bottom:0.6rem;">
+                <span class="mode-badge mode-${mode}">${getModeEmoji(mode)} Modo ${getModeLabel(mode)}</span>
+            </div>
+            <ul class="${cls}">
+                ${items.map(t => `<li>${t}</li>`).join('')}
+            </ul>
+        </div>`;
+    container.innerHTML = html;
+}
+
+// ── Selector de modo en el editor ──
+modeSelector.addEventListener('click', (e) => {
+    const opt = e.target.closest('.mode-option');
+    if (!opt) return;
+    selectedMode = opt.dataset.mode;
+    modeSelector.querySelectorAll('.mode-option').forEach(el => el.classList.toggle('selected', el === opt));
+});
+
+// ════════════════════════════════════════════
+// LOGIN
+// ════════════════════════════════════════════
+loginBtn.addEventListener('click', () => {
+    const u = document.getElementById('adminUser').value.trim();
+    const p = document.getElementById('adminPass').value;
+    if (u === ADMIN_USER && p === ADMIN_PASS) {
+        loginPanel.classList.add('hidden');
+        adminPanel.classList.remove('hidden');
+        initAdmin();
+    } else {
+        showMsg(loginMsg, '❌ Credenciales incorrectas.', 'error');
+    }
+});
+document.getElementById('adminPass').addEventListener('keydown', e => { if(e.key==='Enter') loginBtn.click(); });
+
+logoutBtn.addEventListener('click', () => {
+    stopAdminTimer();
+    if (gameUnsub) gameUnsub();
+    if (participantsUnsub) participantsUnsub();
+    if (rankingUnsub) rankingUnsub();
+    gameUnsub = null; participantsUnsub = null; rankingUnsub = null;
+    adminPanel.classList.add('hidden');
+    loginPanel.classList.remove('hidden');
+    document.getElementById('adminUser').value = '';
+    document.getElementById('adminPass').value = '';
+});
+
+// ════════════════════════════════════════════
+// EDITOR DE PREGUNTAS
+// ════════════════════════════════════════════
+function buildQuestionBlock(idx) {
+    const q = questions[idx];
+    const div = document.createElement('div');
+    div.className = 'question-builder';
+    div.id = 'qblock-' + idx;
+    div.innerHTML = `
+        <div class="q-header">
+            <span style="color:#a78bfa; font-weight:700; font-size:0.9rem;">Pregunta ${idx+1}</span>
+            <button class="btn-danger" style="padding:0.3rem 0.8rem; font-size:0.75rem;" onclick="removeQuestion(${idx})">✕ Eliminar</button>
+        </div>
+        <div class="input-group">
+            <label>Texto de la pregunta</label>
+            <textarea class="q-text" rows="2" placeholder="¿Cuál es...?">${escapeHtml(q.text||'')}</textarea>
+        </div>
+        <div class="options-inputs">
+            <input class="q-opt" data-opt="0" placeholder="Opción A" value="${escapeHtml(q.options[0]||'')}">
+            <input class="q-opt" data-opt="1" placeholder="Opción B" value="${escapeHtml(q.options[1]||'')}">
+            <input class="q-opt" data-opt="2" placeholder="Opción C" value="${escapeHtml(q.options[2]||'')}">
+            <input class="q-opt" data-opt="3" placeholder="Opción D" value="${escapeHtml(q.options[3]||'')}">
+        </div>
+        <div class="correct-select mt-1">
+            <span style="font-size:0.8rem; color:#94a3b8;">Correcta:</span>
+            ${['A','B','C','D'].map((ltr,i) => `
+                <label>
+                    <input type="radio" name="correct-${idx}" value="${i}" ${q.correct===i?'checked':''}>
+                    ${ltr}
+                </label>
+            `).join('')}
+        </div>
+        <div class="input-group mt-1">
+            <label>⏱️ Tiempo límite (segundos)</label>
+            <input type="number" class="q-time" min="5" max="120" value="${q.timeLimit||30}" style="border-radius:0.8rem; padding:0.45rem 0.8rem;">
+        </div>
+    `;
+    return div;
+}
+
+function renderEditor() {
+    emptyEl(qContainer);
+    questions.forEach((_, idx) => {
+        qContainer.appendChild(buildQuestionBlock(idx));
+    });
+}
+
+function readEditorValues() {
+    questions.forEach((q, idx) => {
+        const block = document.getElementById('qblock-' + idx);
+        if (!block) return;
+        q.text    = block.querySelector('.q-text').value.trim();
+        q.options = Array.from(block.querySelectorAll('.q-opt')).map(i => i.value.trim());
+        const radio = block.querySelector(`input[name="correct-${idx}"]:checked`);
+        q.correct = radio ? parseInt(radio.value) : 0;
+        q.timeLimit = parseInt(block.querySelector('.q-time').value) || 30;
+    });
+}
+
+window.removeQuestion = function(idx) {
+    readEditorValues();
+    questions.splice(idx, 1);
+    renderEditor();
+};
+
+addQBtn.addEventListener('click', () => {
+    readEditorValues();
+    questions.push({ text:'', options:['','','',''], correct:0, timeLimit:30 });
+    renderEditor();
+    const last = qContainer.lastElementChild;
+    if (last) last.scrollIntoView({ behavior:'smooth', block:'nearest' });
+});
+
+clearEditorBtn.addEventListener('click', () => {
+    if (!confirm('¿Limpiar el editor?')) return;
+    questions = [];
+    quizNameInput.value = '';
+    renderEditor();
+    selectedQuizId = null;
+});
+
+// ── Guardar quiz en Firestore ──
+saveQuizBtn.addEventListener('click', async () => {
+    readEditorValues();
+    const name = quizNameInput.value.trim();
+    if (!name) { showMsg(editorMsg, '⚠️ Ponle nombre al quiz.', 'warn'); return; }
+    if (questions.length === 0) { showMsg(editorMsg, '⚠️ Agrega al menos una pregunta.', 'warn'); return; }
+
+    for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        if (!q.text) { showMsg(editorMsg, `⚠️ La pregunta ${i+1} no tiene texto.`, 'warn'); return; }
+        if (q.options.some(o => !o)) { showMsg(editorMsg, `⚠️ La pregunta ${i+1} tiene opciones vacías.`, 'warn'); return; }
+    }
+
+    saveQuizBtn.disabled = true;
+    try {
+        const quizData = {
+            name,
+            questions,
+            gameMode: selectedMode,
+            roundState: 'pending',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            status: 'waiting',
+            currentQuestion: -1,
+            questionStartTime: null,
+            showRanking: false,
+            sessionId: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        };
+
+        let quizRef;
+        if (selectedQuizId) {
+            quizRef = db.collection('coyohoots').doc(selectedQuizId);
+            const snap = await quizRef.get();
+            const prev = snap.data();
+            if (prev && prev.status !== 'waiting') {
+                quizData.status = 'waiting';
+                quizData.currentQuestion = -1;
+                quizData.showRanking = false;
+            }
+            await quizRef.set(quizData, { merge: true });
+        } else {
+            quizRef = await db.collection('coyohoots').add(quizData);
+            selectedQuizId = quizRef.id;
+        }
+
+        showMsg(editorMsg, '✅ Quiz guardado correctamente.', 'success');
+        loadSavedQuizzes();
+    } catch (e) {
+        console.error(e);
+        showMsg(editorMsg, '❌ Error al guardar: ' + e.message, 'error');
+    } finally {
+        saveQuizBtn.disabled = false;
+    }
+});
+
+// ════════════════════════════════════════════
+// LISTA DE QUIZZES GUARDADOS
+// ════════════════════════════════════════════
+async function loadSavedQuizzes() {
+    emptyEl(savedQuizList);
+    savedQuizList.innerHTML = '<p class="small-text pulse">Cargando quizzes...</p>';
+    try {
+        const snap = await db.collection('coyohoots').get();
+        emptyEl(savedQuizList);
+        const docs = [];
+        snap.forEach(doc => docs.push({ doc, data: doc.data() || {} }));
+        docs.sort(sortByCreatedDesc);
+        if (docs.length === 0) {
+            savedQuizList.innerHTML = '<p class="small-text">No hay quizzes guardados aún.</p>';
+            return;
+        }
+        docs.forEach(({ doc, data: d }) => {
+            const div = document.createElement('div');
+            div.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0.4rem;border-bottom:1px solid rgba(255,255,255,0.05); gap:0.5rem; flex-wrap:wrap;';
+            const st = normalizedStatus(d);
+            const statusColor = st==='active' ? '#6ee7b7' : (st==='finished' || st==='stopped') ? '#94a3b8' : '#fcd34d';
+            const mode = quizModeOf(d);
+            div.innerHTML = `
+                <span style="font-size:0.85rem; color:#e2e8f0; font-weight:600; flex:1; min-width:100px;">
+                    ${escapeHtml(d.name)}
+                    <span class="mode-badge mode-${mode}" style="margin-left:0.4rem; font-size:0.65rem; padding:0.15rem 0.5rem;">${getModeEmoji(mode)} ${getModeLabel(mode)}</span>
+                    <span style="color:${statusColor}; font-size:0.7rem; margin-left:0.3rem;">[${st}]</span>
+                </span>
+                <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                    ${shouldShowStopAction(d) ? `<button style="padding:0.3rem 0.8rem; font-size:0.75rem;" class="btn-danger" onclick="stopQuizFromList('${doc.id}')">⏹️ Detener</button>` : ''}
+                    <button style="padding:0.3rem 0.8rem; font-size:0.75rem;" class="btn-outline" onclick="selectQuiz('${doc.id}')">🎮 Controlar</button>
+                    <button style="padding:0.3rem 0.8rem; font-size:0.75rem;" class="btn-outline" onclick="editQuiz('${doc.id}')">✏️ Editar</button>
+                    <button style="padding:0.3rem 0.8rem; font-size:0.75rem;" class="btn-danger" onclick="deleteQuiz('${doc.id}')">🗑️</button>
+                </div>
+            `;
+            savedQuizList.appendChild(div);
+        });
+    } catch(e) {
+        savedQuizList.innerHTML = `<p class="small-text msg-error">Error: ${e.message}</p>`;
+    }
+}
+
+window.editQuiz = async function(id) {
+    const snap = await db.collection('coyohoots').doc(id).get();
+    if (!snap.exists) return;
+    const d = snap.data();
+    selectedQuizId = id;
+    quizNameInput.value = d.name || '';
+    selectedMode = quizModeOf(d);
+    modeSelector.querySelectorAll('.mode-option').forEach(el => {
+        el.classList.toggle('selected', el.dataset.mode === selectedMode);
+    });
+    questions = (d.questions || []).map(q => ({
+        text: q.text||'',
+        options: q.options||['','','',''],
+        correct: q.correct??0,
+        timeLimit: q.timeLimit||30
+    }));
+    renderEditor();
+    document.getElementById('sectionEditor').scrollIntoView({ behavior:'smooth' });
+};
+
+window.deleteQuiz = async function(id) {
+    if (!confirm('¿Eliminar este quiz y todos sus datos?')) return;
+    try {
+        const cols = ['participants','responses'];
+        for (const col of cols) {
+            const sub = await db.collection('coyohoots').doc(id).collection(col).get();
+            const batch = db.batch();
+            sub.forEach(d => batch.delete(d.ref));
+            await batch.commit();
+        }
+        await db.collection('coyohoots').doc(id).delete();
+        if (selectedQuizId === id) {
+            selectedQuizId = null;
+            activeCtrl.classList.add('hidden');
+            sectionParticipants.classList.add('hidden');
+            sectionRanking.classList.add('hidden');
+            stopAdminTimer();
+            if (gameUnsub) { gameUnsub(); gameUnsub = null; }
+            if (participantsUnsub) { participantsUnsub(); participantsUnsub = null; }
+            if (rankingUnsub) { rankingUnsub(); rankingUnsub = null; }
+        }
+        loadSavedQuizzes();
+    } catch(e) { alert('Error: ' + e.message); }
+};
+
+// ════════════════════════════════════════════
+// CONTROL DEL QUIZ SELECCIONADO
+// ════════════════════════════════════════════
+window.selectQuiz = function(id) {
+    if (gameUnsub) { gameUnsub(); gameUnsub = null; }
+    if (participantsUnsub) { participantsUnsub(); participantsUnsub = null; }
+    if (rankingUnsub) { rankingUnsub(); rankingUnsub = null; }
+    stopAdminTimer();
+    selectedQuizId = id;
+    activeCtrl.classList.remove('hidden');
+    sectionParticipants.classList.remove('hidden');
+    sectionRanking.classList.remove('hidden');
+    instructionsPreview.classList.add('hidden');
+    subscribeToGame(id);
+    subscribeToParticipants(id);
+    // El ranking se suscribe DESPUÉS de saber el modo (lo hace renderGameStatus)
+    activeCtrl.scrollIntoView({ behavior:'smooth' });
+};
+
+function subscribeToGame(id) {
+    gameUnsub = db.collection('coyohoots').doc(id).onSnapshot(snap => {
+        if (!snap.exists) return;
+        renderGameStatus(snap.data(), id);
+    });
+}
+
+function subscribeToParticipants(id) {
+    participantsUnsub = db.collection('coyohoots').doc(id).collection('participants').onSnapshot(snap => {
+        participantCountEl.textContent = snap.size;
+        emptyEl(participantChips);
+        snap.forEach(d => {
+            const chip = document.createElement('span');
+            chip.className = 'chip';
+            chip.textContent = escapeHtml(d.data().nickname || d.id);
+            participantChips.appendChild(chip);
+        });
+    });
+}
+
+function subscribeToRanking(id, mode) {
+    // (Re)configurar la cabecera de la tabla según el modo
+    if (mode === 'supervivencia') {
+        adminRankingHead.innerHTML = '<tr><th>#</th><th>Nombre</th><th class="lives-cell">Vidas</th><th>Aciertos</th><th>Puntos</th></tr>';
+    } else {
+        adminRankingHead.innerHTML = '<tr><th>#</th><th>Nombre</th><th>Puntos</th></tr>';
+    }
+
+    // Suscripción sin orderBy: el ordenamiento se hace en cliente (más flexible para supervivencia)
+    rankingUnsub = db.collection('coyohoots').doc(id).collection('participants').onSnapshot(snap => {
+        const arr = [];
+        snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+        arr.sort(buildRankComparator(mode));
+
+        emptyEl(rankingBody);
+        let pos = 1;
+        arr.forEach(pd => {
+            const tr = document.createElement('tr');
+            const eliminated = mode === 'supervivencia' && (pd.lives ?? 3) <= 0;
+            if (eliminated) tr.classList.add('eliminated');
+            if (!eliminated) {
+                if (pos === 1) tr.className = 'top-1';
+                else if (pos === 2) tr.className = 'top-2';
+                else if (pos === 3) tr.className = 'top-3';
+            }
+            const medal = (!eliminated && pos === 1) ? '🥇'
+                        : (!eliminated && pos === 2) ? '🥈'
+                        : (!eliminated && pos === 3) ? '🥉'
+                        : pos + '.';
+            const nick = escapeHtml(pd.nickname || '?');
+            if (mode === 'supervivencia') {
+                const lives = pd.lives ?? 3;
+                const correct = pd.correctCount ?? 0;
+                const score = pd.totalScore || 0;
+                tr.innerHTML = `<td>${medal}</td><td>${nick}</td><td class="lives-cell">${'❤️'.repeat(Math.max(0, lives))}${lives === 0 ? '💀' : ''}</td><td>${correct}</td><td>${score}</td>`;
+            } else {
+                tr.innerHTML = `<td>${medal}</td><td>${nick}</td><td>${pd.totalScore || 0}</td>`;
+            }
+            rankingBody.appendChild(tr);
+            pos++;
+        });
+    });
+}
+
+// ── Comparador de ranking según modo ──
+function buildRankComparator(mode) {
+    if (mode === 'supervivencia') {
+        // En supervivencia: vivos primero (por vidas desc, luego aciertos desc, luego puntos desc),
+        // eliminados al final (por aciertos desc, luego puntos desc).
+        return (a, b) => {
+            const aLives = a.lives ?? 3;
+            const bLives = b.lives ?? 3;
+            const aAlive = aLives > 0;
+            const bAlive = bLives > 0;
+            if (aAlive !== bAlive) return aAlive ? -1 : 1;
+            if (aLives !== bLives) return bLives - aLives;
+            const aCorrect = a.correctCount ?? 0;
+            const bCorrect = b.correctCount ?? 0;
+            if (aCorrect !== bCorrect) return bCorrect - aCorrect;
+            return (b.totalScore || 0) - (a.totalScore || 0);
+        };
+    }
+    // Clásico: por totalScore desc.
+    return (a, b) => (b.totalScore || 0) - (a.totalScore || 0);
+}
+
+// ── Renderiza estado del juego y sincroniza el timer ──
+function renderGameStatus(data, id) {
+    const rawStatus = normalizedStatus(data);
+    const status = rawStatus === 'stopped' ? 'stopped' : rawStatus;
+    const { currentQuestion, questions: qs, showRanking, questionDeadline, roundState } = data;
+    const mode = quizModeOf(data);
+    const total = (qs||[]).length;
+
+    // Si el modo del quiz cambió respecto al que estábamos siguiendo, re-suscribir el ranking
+    if (mode !== currentGameMode || !rankingUnsub) {
+        currentGameMode = mode;
+        if (rankingUnsub) { rankingUnsub(); rankingUnsub = null; }
+        subscribeToRanking(id, mode);
+    }
+
+    const modeBadge = `<span class="mode-badge mode-${mode}" style="margin-right:0.4rem;">${getModeEmoji(mode)} ${getModeLabel(mode)}</span>`;
+    let statusHtml = '';
+
+    // Ocultar todos los botones de control por defecto y mostrar según estado
+    startQuizBtn.classList.add('hidden');
+    beginGameBtn.classList.add('hidden');
+    nextQBtn.classList.add('hidden');
+    showRankBtn.classList.add('hidden');
+    stopQuizBtn.classList.add('hidden');
+    openStageBtn.classList.add('hidden');
+    showAvatarWallBtn.classList.add('hidden');
+    if (selectedQuizId) openStageBtn.classList.remove('hidden');
+
+    if (status === 'waiting') {
+        if (roundState === 'avatarWall') {
+            statusHtml = `${modeBadge}<span class="status-pill waiting">👥 Pantalla de avatares en vivo</span>`;
+            startQuizBtn.classList.remove('hidden');
+            showAvatarWallBtn.classList.remove('hidden');
+            instructionsPreview.classList.add('hidden');
+        } else if (roundState === 'instructions') {
+            // Instrucciones mostradas y esperando que el admin inicie la partida
+            statusHtml = `${modeBadge}<span class="status-pill waiting">📖 Instrucciones mostradas — listo para iniciar</span>`;
+            beginGameBtn.classList.remove('hidden');
+            showAvatarWallBtn.classList.remove('hidden');
+            stopQuizBtn.classList.remove('hidden');
+            renderInstructionsInto(instructionsPreviewBody, mode);
+            instructionsPreview.classList.remove('hidden');
+        } else {
+            statusHtml = `${modeBadge}<span class="status-pill waiting">⏳ Esperando participantes</span>`;
+            startQuizBtn.classList.remove('hidden');
+            showAvatarWallBtn.classList.remove('hidden');
+            if (shouldShowStopAction(data)) stopQuizBtn.classList.remove('hidden');
+            instructionsPreview.classList.add('hidden');
+        }
+        stopAdminTimer();
+
+    } else if (status === 'active') {
+        instructionsPreview.classList.add('hidden');
+        const qIdx = currentQuestion ?? 0;
+        const q = (qs || [])[qIdx];
+
+        if (showRanking) {
+            statusHtml = `${modeBadge}<span class="status-pill waiting">📊 Ranking – Pregunta ${qIdx+1}/${total}</span>`;
+            nextQBtn.textContent = (qIdx + 1 < total) ? '⏭️ Siguiente Pregunta' : '🏁 Finalizar Quiz';
+            nextQBtn.classList.remove('hidden');
+            stopQuizBtn.classList.remove('hidden');
+            stopAdminTimer();
+
+        } else {
+            statusHtml = `${modeBadge}<span class="status-pill active">▶️ Pregunta ${qIdx+1}/${total}: "${escapeHtml((q&&q.text)||'')}"</span>`;
+            showRankBtn.classList.remove('hidden');
+            stopQuizBtn.classList.remove('hidden');
+
+            if (questionDeadline && questionDeadline !== currentTimerDeadline) {
+                startAdminTimer(questionDeadline, (q && q.timeLimit) || 30, id, qIdx);
+            }
+        }
+
+    } else if (status === 'stopped') {
+        instructionsPreview.classList.add('hidden');
+        statusHtml = `${modeBadge}<span class="status-pill finished">⏹️ Quiz detenido</span>`;
+        stopAdminTimer();
+    } else if (status === 'finished') {
+        instructionsPreview.classList.add('hidden');
+        statusHtml = `${modeBadge}<span class="status-pill finished">🏁 Quiz finalizado</span>`;
+        stopAdminTimer();
+    }
+
+    quizStatusArea.innerHTML = statusHtml;
+}
+
+// ════════════════════════════════════════════
+// TIMER ADMIN — sincronizado con questionDeadline de Firebase
+// ════════════════════════════════════════════
+function startAdminTimer(deadline, totalSecs, quizId, qIdx) {
+    stopAdminTimer();
+    currentTimerDeadline  = deadline;
+    autoRankingScheduled  = false;
+
+    adminTimerWrap.style.display = 'flex';
+
+    function tick() {
+        const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+        adminTimerDisplay.textContent = remaining;
+        const pct = (remaining / (totalSecs || 30)) * 100;
+        adminTimerDisplay.style.setProperty('--progress', pct + '%');
+
+        if (remaining <= 5) adminTimerDisplay.classList.add('urgent');
+        else adminTimerDisplay.classList.remove('urgent');
+
+        if (remaining <= 0) {
+            stopAdminTimer();
+            // Disparar ranking automáticamente si aún no se disparó
+            if (!autoRankingScheduled) {
+                autoRankingScheduled = true;
+                triggerAutoRanking(quizId);
+            }
+        }
+    }
+
+    tick();
+    adminTimerInterval = setInterval(tick, 500);
+}
+
+function stopAdminTimer() {
+    if (adminTimerInterval) {
+        clearInterval(adminTimerInterval);
+        adminTimerInterval = null;
+    }
+    currentTimerDeadline = null;
+    adminTimerWrap.style.display = 'none';
+    adminTimerDisplay.textContent = '--';
+    adminTimerDisplay.classList.remove('urgent');
+}
+
+
+// ── Penaliza a jugadores de Supervivencia que no respondieron la pregunta cerrada ──
+async function applyMissingSurvivalPenalties(quizId, quizData = null) {
+    if (!quizId) return { applied: 0 };
+
+    const quizRef = db.collection('coyohoots').doc(quizId);
+    let data = quizData;
+    if (!data) {
+        const snap = await quizRef.get();
+        if (!snap.exists) return { applied: 0 };
+        data = snap.data() || {};
+    }
+
+    if (quizModeOf(data) !== 'supervivencia') return { applied: 0 };
+    if (normalizedStatus(data) !== 'active') return { applied: 0 };
+    if (data.isStopped) return { applied: 0 };
+
+    const qIdx = data.currentQuestion ?? 0;
+    if (qIdx < 0) return { applied: 0 };
+
+    const participantsSnap = await quizRef.collection('participants').get();
+    if (participantsSnap.empty) return { applied: 0 };
+
+    let applied = 0;
+    let batch = db.batch();
+    let ops = 0;
+    const now = Date.now();
+
+    async function commitIfNeeded(force = false) {
+        if (ops > 0 && (force || ops >= 450)) {
+            await batch.commit();
+            batch = db.batch();
+            ops = 0;
+        }
+    }
+
+    for (const partDoc of participantsSnap.docs) {
+        const participantId = partDoc.id;
+        const pd = partDoc.data() || {};
+        const prevLives = (pd.lives == null) ? SURVIVAL_INITIAL_LIVES : Number(pd.lives || 0);
+
+        // Si ya estaba eliminado, no se le descuenta otra vida por no responder.
+        if (prevLives <= 0 || pd.eliminated === true) continue;
+
+        const respRef = quizRef.collection('responses').doc(`${participantId}_q${qIdx}`);
+        const respSnap = await respRef.get();
+        if (respSnap.exists) continue; // Ya respondió o ya fue penalizado en otro cierre.
+
+        const nextLives = Math.max(0, prevLives - 1);
+        const eliminated = nextLives <= 0;
+
+        batch.set(respRef, {
+            participantId,
+            nickname: pd.nickname || '',
+            questionIdx: qIdx,
+            answer: null,
+            correct: false,
+            score: 0,
+            responseTime: null,
+            answeredAt: now,
+            mode: 'supervivencia',
+            timedOut: true,
+            noAnswer: true,
+            penaltyApplied: true,
+            livesAfter: nextLives,
+            consecutiveAfter: 0
+        });
+        ops++;
+
+        batch.update(partDoc.ref, {
+            lives: nextLives,
+            consecutiveCorrect: 0,
+            eliminated,
+            lastTimeoutPenaltyAt: now,
+            lastResponseTime: now
+        });
+        ops++;
+        applied++;
+
+        await commitIfNeeded();
+    }
+
+    await commitIfNeeded(true);
+    return { applied };
+}
+
+// ── Escribe showRanking:true en Firebase cuando el tiempo llega a 0 ──
+async function triggerAutoRanking(quizId) {
+    if (!quizId) return;
+    try {
+        const snap = await db.collection('coyohoots').doc(quizId).get();
+        if (!snap.exists) return;
+        const d = snap.data();
+        // Doble-check: solo actualizar si todavía está active y sin ranking
+        if (normalizedStatus(d) === 'active' && !d.showRanking && !d.isStopped) {
+            await applyMissingSurvivalPenalties(quizId, d);
+            await db.collection('coyohoots').doc(quizId).update({ showRanking: true, screenMode: 'ranking', screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        }
+    } catch(e) {
+        console.error('Error en triggerAutoRanking:', e);
+    }
+}
+
+// ════════════════════════════════════════════
+// BOTONES DE CONTROL
+// ════════════════════════════════════════════
+
+openStageBtn.addEventListener('click', () => {
+    if (!selectedQuizId) return;
+    const url = 'pantalla.html?quizId=' + encodeURIComponent(selectedQuizId);
+    window.open(url, '_blank', 'noopener');
+});
+
+showAvatarWallBtn.addEventListener('click', async () => {
+    if (!selectedQuizId) return;
+    await db.collection('coyohoots').doc(selectedQuizId).update({
+        roundState: 'avatarWall',
+        screenMode: 'avatarWall',
+        screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        isRunning: false,
+        isStopped: false
+    });
+    showMsg(controlMsg, '👥 Pantalla de avatares enviada. Abre “Pantalla en vivo” para proyectarla.', 'success');
+});
+
+startQuizBtn.addEventListener('click', async () => {
+    if (!selectedQuizId) return;
+    const snap = await db.collection('coyohoots').doc(selectedQuizId).get();
+    const d = snap.data();
+    if (!d || !d.questions || d.questions.length === 0) {
+        showMsg(controlMsg, '⚠️ Este quiz no tiene preguntas.', 'warn'); return;
+    }
+    // Marcar el quiz como "instrucciones mostradas". Los participantes que estén en la
+    // sala de espera verán automáticamente la pantalla de instrucciones del modo.
+    await db.collection('coyohoots').doc(selectedQuizId).update({
+        roundState: 'instructions',
+        screenMode: 'instructions',
+        screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showMsg(controlMsg, '📖 Instrucciones enviadas a los participantes.', 'success');
+});
+
+beginGameBtn.addEventListener('click', async () => {
+    if (!selectedQuizId) return;
+    const snap = await db.collection('coyohoots').doc(selectedQuizId).get();
+    const d = snap.data();
+    if (!d || !d.questions || d.questions.length === 0) {
+        showMsg(controlMsg, '⚠️ Este quiz no tiene preguntas.', 'warn'); return;
+    }
+    await launchQuestion(selectedQuizId, 0, d.questions);
+    showMsg(controlMsg, '▶️ Partida iniciada.', 'success');
+});
+
+showRankBtn.addEventListener('click', async () => {
+    if (!selectedQuizId) return;
+    stopAdminTimer();
+    try {
+        const snap = await db.collection('coyohoots').doc(selectedQuizId).get();
+        const d = snap.exists ? (snap.data() || {}) : {};
+        await applyMissingSurvivalPenalties(selectedQuizId, d);
+        await db.collection('coyohoots').doc(selectedQuizId).update({ showRanking: true, isRunning: true, screenMode: 'ranking', screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    } catch(e) {
+        showMsg(controlMsg, '❌ Error al cerrar pregunta: ' + e.message, 'error');
+    }
+});
+
+nextQBtn.addEventListener('click', async () => {
+    if (!selectedQuizId) return;
+    const snap = await db.collection('coyohoots').doc(selectedQuizId).get();
+    const d = snap.data();
+    const nextIdx = (d.currentQuestion ?? 0) + 1;
+    if (nextIdx >= (d.questions||[]).length) {
+        await db.collection('coyohoots').doc(selectedQuizId).update({
+            status: 'finished',
+            showRanking: true,
+            currentQuestion: d.currentQuestion,
+            questionDeadline: Date.now(),
+            isRunning: false,
+            isStopped: false,
+            roundState: 'finished',
+            screenMode: 'finished',
+            screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            finishedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        showMsg(controlMsg, '🏁 Quiz finalizado.', 'success');
+    } else {
+        await launchQuestion(selectedQuizId, nextIdx, d.questions);
+        showMsg(controlMsg, `▶️ Pregunta ${nextIdx+1} iniciada.`, 'success');
+    }
+});
+
+// ── Detener Coyohoot en curso ──
+async function stopQuiz(quizId, { askConfirm = true } = {}) {
+    if (!quizId) return;
+    if (askConfirm && !confirm('¿Detener el Coyohoot? Se cerrará la sesión activa, se bloquearán respuestas nuevas y dejará de aparecer como activo para participantes.')) return;
+    try {
+        if (quizId === selectedQuizId) stopAdminTimer();
+        await db.collection('coyohoots').doc(quizId).update({
+            status: 'stopped',
+            showRanking: true,
+            isStopped: true,
+            isRunning: false,
+            roundState: 'stopped',
+            screenMode: 'stopped',
+            screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            questionDeadline: Date.now(),
+            stoppedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            stoppedBy: 'admin'
+        });
+        if (quizId === selectedQuizId) {
+            showMsg(controlMsg, '⏹️ Coyohoot detenido correctamente.', 'success');
+        }
+        loadSavedQuizzes();
+    } catch(e) {
+        if (quizId === selectedQuizId) {
+            showMsg(controlMsg, '❌ Error al detener: ' + e.message, 'error');
+        } else {
+            alert('Error al detener: ' + e.message);
+        }
+    }
+}
+
+stopQuizBtn.addEventListener('click', async () => {
+    await stopQuiz(selectedQuizId);
+});
+
+window.stopQuizFromList = async function(id) {
+    await stopQuiz(id);
+};
+
+// ── Limpia participantes y respuestas de una sesión ──
+async function cleanParticipantsAndResponses(quizId) {
+    const cols = ['participants', 'responses'];
+    for (const col of cols) {
+        const snap = await db.collection('coyohoots').doc(quizId).collection(col).get();
+        if (snap.empty) continue;
+        const batch = db.batch();
+        snap.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+    }
+}
+
+// ── Limpia sesión activa y pone el quiz en "waiting" con nuevo sessionId ──
+async function cleanSession(quizId) {
+    await cleanParticipantsAndResponses(quizId);
+    const newSessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    await db.collection('coyohoots').doc(quizId).update({
+        status: 'waiting',
+        currentQuestion: -1,
+        questionStartTime: null,
+        questionDeadline: null,
+        showRanking: false,
+        isStopped: false,
+        isRunning: false,
+        roundState: 'pending',
+        screenMode: 'lobby',
+        screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        sessionId: newSessionId
+    });
+}
+
+resetQuizBtn.addEventListener('click', async () => {
+    if (!selectedQuizId) return;
+    if (!confirm('¿Reiniciar quiz? Se borrarán participantes, respuestas y puntajes. La sesión iniciará desde cero.')) return;
+    try {
+        stopAdminTimer();
+        await cleanSession(selectedQuizId);
+        showMsg(controlMsg, '🔁 Quiz reiniciado. Sesión limpia lista.', 'success');
+    } catch(e) { showMsg(controlMsg, '❌ Error: '+e.message, 'error'); }
+});
+
+async function launchQuestion(quizId, qIdx, questions) {
+    stopAdminTimer();
+    autoRankingScheduled = false;
+    currentTimerDeadline = null;
+    const q = questions[qIdx];
+    const now = Date.now();
+    const update = {
+        status: 'active',
+        currentQuestion: qIdx,
+        questionStartTime: now,
+        questionDeadline: now + (q.timeLimit || 30) * 1000,
+        showRanking: false,
+        isStopped: false,
+        isRunning: true,
+        roundState: 'playing',
+        screenMode: 'question',
+        screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    if (qIdx === 0) {
+        update.sessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    }
+    await db.collection('coyohoots').doc(quizId).update(update);
+}
+
+// ════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════
+function initAdmin() {
+    loadSavedQuizzes();
+    if (questions.length === 0) {
+        questions = [{ text:'', options:['','','',''], correct:0, timeLimit:30 }];
+    }
+    renderEditor();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coyohoot | Participante</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div class="page-container">
+    <div class="top-bar"></div>
+    <div class="content">
+        <div class="logo-container">
+            <img src="logo.jpeg" alt="Coyohoot" class="logo">
+        </div>
+
+        <h2>🐺 Coyohoot</h2>
+        <p class="subtitle">Elige un Coyohoot disponible. Cada uno tiene su propio modo de juego.</p>
+
+        <div id="quizListContainer" class="card">
+            <p class="small-text pulse">Cargando quizzes disponibles...</p>
+        </div>
+
+        <div class="card" style="margin-top:0.8rem;">
+            <h3 style="font-size:0.95rem; margin-bottom:0.4rem;">¿Qué modo prefieres?</h3>
+            <p class="small-text" style="margin-bottom:0.8rem;">Si tienes un código directo, también puedes ir a la vista de un modo específico:</p>
+            <div class="button-group" style="margin-top:0;">
+                <a href="clasico.html" class="btn-secondary">🎯 Modo Clásico</a>
+                <a href="supervivencia.html" class="btn-secondary">❤️ Supervivencia</a>
+            </div>
+        </div>
+
+        <div class="nav-buttons">
+            <a href="index.html" class="btn-outline">🏠 Inicio</a>
+        </div>
+    </div>
+    <div class="top-bar" style="margin-top:1rem;"></div>
+</div>
+
+<script src="firebase.js"></script>
+<script>
+/* ================================================
+   COYOHOOT — Dispatcher de Participante
+   Detecta el modo de cada quiz y redirige a:
+     - clasico.html?quizId=...
+     - supervivencia.html?quizId=...
+   ================================================ */
+
+const quizListContainer = document.getElementById('quizListContainer');
+let quizListUnsub = null;
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function modeOf(d) {
+    const raw = (d.gameMode || d.mode || d.modo || '').toString().toLowerCase();
+    return raw === 'supervivencia' || raw === 'survival' ? 'supervivencia' : 'clasico';
+}
+function normalizedStatus(d) {
+    // Compatibilidad: quizzes viejos sin status se consideran disponibles.
+    return d.status || (Array.isArray(d.questions) ? 'waiting' : 'archived');
+}
+function isJoinableQuiz(d) {
+    const st = normalizedStatus(d);
+    return st === 'waiting' || st === 'active';
+}
+function sortByCreatedDesc(a, b) {
+    const av = a.data.createdAt && typeof a.data.createdAt.toMillis === 'function' ? a.data.createdAt.toMillis() : 0;
+    const bv = b.data.createdAt && typeof b.data.createdAt.toMillis === 'function' ? b.data.createdAt.toMillis() : 0;
+    if (av !== bv) return bv - av;
+    return (a.data.name || '').localeCompare(b.data.name || '');
+}
+function modeLabel(m) { return m === 'supervivencia' ? 'Supervivencia' : 'Clásico'; }
+function modeEmoji(m) { return m === 'supervivencia' ? '❤️' : '🎯'; }
+function targetPage(m) { return m === 'supervivencia' ? 'supervivencia.html' : 'clasico.html'; }
+
+function renderQuizButton(doc, d) {
+    const m = modeOf(d);
+    const btn = document.createElement('button');
+    btn.className = 'btn-primary full-w';
+    btn.style.marginBottom = '0.6rem';
+    btn.style.display = 'flex';
+    btn.style.justifyContent = 'space-between';
+    btn.style.alignItems = 'center';
+    btn.innerHTML = `
+        <span style="flex:1; text-align:left;">🐺 ${escapeHtml(d.name)}</span>
+        <span class="mode-badge mode-${m}" style="margin-left:0.5rem; font-size:0.7rem; padding:0.15rem 0.55rem;">${modeEmoji(m)} ${modeLabel(m)}</span>
+        <span style="font-size:0.72rem; opacity:0.8; margin-left:0.5rem;">[${normalizedStatus(d)==='active'?'En curso':'Esperando'}]</span>
+    `;
+    btn.onclick = () => {
+        // Guardamos una entrada pendiente antes de cambiar de página. Esto evita que
+        // navegadores/hosting que pierdan querystrings o sesiones viejas de localStorage
+        // dejen al jugador atorado en la lista de modo con "Cargando...".
+        localStorage.setItem('coyohoot_pending_join', JSON.stringify({
+            quizId: doc.id,
+            quizName: d.name || '',
+            mode: m,
+            ts: Date.now()
+        }));
+        window.location.href = `${targetPage(m)}?quizId=${encodeURIComponent(doc.id)}&quizName=${encodeURIComponent(d.name || '')}&join=1`;
+    };
+    return btn;
+}
+
+function renderQuizListSnapshot(snap) {
+    const quizzes = [];
+    snap.forEach(doc => {
+        const d = doc.data() || {};
+        if (!isJoinableQuiz(d)) return;
+        quizzes.push({ doc, data: d });
+    });
+    quizzes.sort(sortByCreatedDesc);
+
+    quizListContainer.innerHTML = '';
+    if (quizzes.length === 0) {
+        quizListContainer.innerHTML = '<p class="small-text">😔 No hay quizzes disponibles en este momento.</p>';
+        return;
+    }
+    quizzes.forEach(item => quizListContainer.appendChild(renderQuizButton(item.doc, item.data)));
+}
+
+function loadQuizList() {
+    quizListContainer.innerHTML = '<p class="small-text pulse">Cargando...</p>';
+    try {
+        // Una sola lista general y EN TIEMPO REAL. No usamos where/orderBy porque los
+        // documentos viejos pueden no tener status, gameMode o createdAt.
+        if (quizListUnsub) quizListUnsub();
+        quizListUnsub = db.collection('coyohoots').onSnapshot(renderQuizListSnapshot, e => {
+            quizListContainer.innerHTML = `<p class="small-text msg-error">Error: ${e.message}</p>`;
+        });
+    } catch(e) {
+        quizListContainer.innerHTML = `<p class="small-text msg-error">Error: ${e.message}</p>`;
+    }
+}
+
+// Si hay una sesión guardada con quizId, redirigir directo al modo correcto
+(function init() {
+    try {
+        const raw = localStorage.getItem('coyohoot_session');
+        if (raw) {
+            const saved = JSON.parse(raw);
+            if (saved && saved.quizId) {
+                db.collection('coyohoots').doc(saved.quizId).get().then(snap => {
+                    if (snap.exists) {
+                        const d = snap.data();
+                        if (isJoinableQuiz(d)) {
+                            const m = modeOf(d);
+                            window.location.href = `${targetPage(m)}?quizId=${encodeURIComponent(saved.quizId)}`;
+                            return;
+                        }
+                    }
+                    loadQuizList();
+                }).catch(() => loadQuizList());
+                return;
+            }
+        }
+    } catch(e) {}
+    loadQuizList();
+})();
+</script>
+</body>
+</html>

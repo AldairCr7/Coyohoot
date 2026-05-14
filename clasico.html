@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coyohoot | Modo Clásico</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div class="page-container">
+    <div class="top-bar"></div>
+    <div class="content">
+        <div class="logo-container">
+            <img src="logo.jpeg" alt="Coyohoot" class="logo">
+        </div>
+
+        <!-- ── PASO 1: SELECCIONAR QUIZ ── -->
+        <div id="stepSelectQuiz">
+            <h2>🎯 Modo Clásico</h2>
+            <p class="subtitle">
+                <span class="mode-badge mode-clasico">🎯 Clásico</span>
+                <br><br>Elige el quiz al que quieres unirte
+            </p>
+            <div id="quizListContainer" class="card">
+                <p class="small-text pulse">Cargando quizzes disponibles...</p>
+            </div>
+            <div class="nav-buttons">
+                <a href="index.html" class="btn-outline">🏠 Inicio</a>
+                <a href="participante.html" class="btn-outline">↩️ Cambiar de modo</a>
+            </div>
+        </div>
+
+        <!-- ── PASO 2: REGISTRO DE NICKNAME ── -->
+        <div id="stepNickname" class="hidden">
+            <h2>🎮 Únete al Quiz</h2>
+            <div class="card">
+                <div id="selectedQuizName" style="color:#c4b5fd; font-weight:700; margin-bottom:1rem;"></div>
+                <div class="input-group">
+                    <label>🌟 Tu nickname</label>
+                    <input type="text" id="nicknameInput" placeholder="Ej: CoyoteRápido" autocomplete="off" maxlength="20">
+                </div>
+                <div class="input-group">
+                    <label>🐺 Elige tu avatar</label>
+                    <div id="avatarPicker" class="avatar-picker"></div>
+                </div>
+                <button id="joinBtn" class="btn-primary full-w">Unirme 🐺</button>
+                <div id="nicknameMsg" class="message hidden"></div>
+            </div>
+            <div class="nav-buttons">
+                <button id="backToListBtn" class="btn-outline">← Volver</button>
+            </div>
+        </div>
+
+        <!-- ── PASO 3: SALA DE ESPERA ── -->
+        <div id="stepWaiting" class="hidden">
+            <h2>⏳ Sala de espera</h2>
+            <div class="card">
+                <div style="margin-bottom:0.8rem;"><span class="mode-badge mode-clasico">🎯 Modo Clásico</span></div>
+                <p style="color:#94a3b8; font-size:0.9rem;">¡Registrado como</p>
+                <p id="waitingNickname" style="color:#c4b5fd; font-size:1.3rem; font-weight:800; margin:0.3rem 0;"></p>
+                <p style="color:#94a3b8; font-size:0.9rem; margin-bottom:1rem;">en <span id="waitingQuizName" style="color:#a78bfa;"></span></p>
+                <div class="status-pill waiting pulse">⏳ Esperando que el admin inicie...</div>
+                <p class="small-text mt-2">Cuando el admin inicie el quiz, la primera pregunta aparecerá automáticamente.</p>
+            </div>
+            <div class="nav-buttons">
+                <a href="index.html" class="btn-outline">🏠 Salir</a>
+            </div>
+        </div>
+
+        <!-- ── PASO 3b: INSTRUCCIONES DEL MODO ── -->
+        <div id="stepInstructions" class="hidden">
+            <h2>📖 Antes de empezar</h2>
+            <div class="card">
+                <div id="instructionsBody"></div>
+                <div class="status-pill waiting pulse mt-2">⏳ Esperando que el admin inicie la partida...</div>
+            </div>
+            <div class="nav-buttons">
+                <a href="index.html" class="btn-outline">🏠 Salir</a>
+            </div>
+        </div>
+
+        <!-- ── PASO 4: PREGUNTA ACTIVA ── -->
+        <div id="stepQuestion" class="hidden">
+            <div id="qHeader" style="margin-bottom:0.5rem;">
+                <span class="question-number" id="qNumber">Pregunta 1</span>
+            </div>
+            <div class="timer-ring-wrap">
+                <div class="timer-display" id="timerDisplay">30</div>
+            </div>
+            <div class="card">
+                <p class="question-text" id="questionText">¿Cargando pregunta?</p>
+                <div class="options-grid" id="optionsGrid"></div>
+                <div id="answerFeedback" class="message hidden"></div>
+            </div>
+        </div>
+
+        <!-- ── PASO 5: RANKING POR PREGUNTA ── -->
+        <div id="stepRanking" class="hidden">
+            <h2>📊 Ranking</h2>
+            <div class="card">
+                <p id="rankingSubtitle" class="small-text" style="margin-bottom:0.8rem;"></p>
+                <div id="myScoreDisplay" style="margin-bottom:0.8rem;"></div>
+                <div class="scrollable">
+                    <table class="ranking-table">
+                        <thead><tr><th>#</th><th>Nombre</th><th>Puntos</th></tr></thead>
+                        <tbody id="rankingTableBody"></tbody>
+                    </table>
+                </div>
+                <p class="small-text mt-2 pulse" id="waitingNextMsg">⏳ Esperando al admin para la siguiente pregunta...</p>
+            </div>
+        </div>
+
+        <!-- ── PASO 5b: JUEGO DETENIDO ── -->
+        <div id="stepStopped" class="hidden">
+            <h2>⏹️ Juego Detenido</h2>
+            <div class="card">
+                <div class="status-pill finished" style="margin-bottom:1rem;">El admin ha detenido el Coyohoot</div>
+                <p style="color:#94a3b8; font-size:0.9rem; margin-bottom:1.2rem;">El juego fue cerrado manualmente. Gracias por participar.</p>
+                <div id="stoppedRankingWrap">
+                    <p style="font-size:0.85rem; color:#c4b5fd; font-weight:600; margin-bottom:0.5rem;">Ranking final hasta este momento:</p>
+                    <div class="scrollable">
+                        <table class="ranking-table">
+                            <thead><tr><th>#</th><th>Nombre</th><th>Puntos</th></tr></thead>
+                            <tbody id="stoppedRankingBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="nav-buttons">
+                <a href="index.html" class="btn-outline">🏠 Volver al inicio</a>
+            </div>
+        </div>
+
+        <!-- ── PASO 6: PODIO FINAL ── -->
+        <div id="stepFinished" class="hidden">
+            <h2>🏆 ¡Quiz Terminado!</h2>
+            <div class="card">
+                <div id="podioContainer" class="podio"></div>
+                <hr>
+                <p style="color:#94a3b8; font-size:0.85rem; margin-bottom:0.5rem;">Tabla completa</p>
+                <div class="scrollable">
+                    <table class="ranking-table">
+                        <thead><tr><th>#</th><th>Nombre</th><th>Puntos</th></tr></thead>
+                        <tbody id="finalRankingBody"></tbody>
+                    </table>
+                </div>
+                <div id="myFinalResult" class="message mt-2"></div>
+            </div>
+            <div class="nav-buttons">
+                <a href="index.html" class="btn-outline">🏠 Volver al inicio</a>
+            </div>
+        </div>
+
+    </div>
+    <div class="top-bar" style="margin-top:1rem;"></div>
+</div>
+
+<script src="firebase.js"></script>
+<script>
+/* ================================================
+   COYOHOOT — Participante (Modo CLÁSICO)
+   ================================================ */
+
+// ── Estado del cliente ──
+let myQuizId        = null;
+let myNickname      = null;
+let myAvatar        = 'Avatares/Avatar1.svg';
+let myAvatarId      = 1;
+let myAvatarPath    = 'Avatares/Avatar1.svg';
+let myAvatarName    = 'Avatar Coyote';
+let myParticipantId = null;
+let mySessionId     = null;   // sessionId de la partida a la que pertenezco
+let answeredQuestions = {};
+let timerInterval   = null;
+let gameUnsub       = null;
+let currentQIdx     = -1;
+let currentQData    = null;
+let lastDeadlineSeen = null;  // evita reiniciar el timer con la misma deadline
+
+// ── DOM ──
+const stepSelectQuiz = document.getElementById('stepSelectQuiz');
+const stepNickname   = document.getElementById('stepNickname');
+const stepWaiting    = document.getElementById('stepWaiting');
+const stepInstructions = document.getElementById('stepInstructions');
+const stepQuestion   = document.getElementById('stepQuestion');
+const stepRanking    = document.getElementById('stepRanking');
+const stepStopped    = document.getElementById('stepStopped');
+const stepFinished   = document.getElementById('stepFinished');
+const instructionsBody = document.getElementById('instructionsBody');
+
+const quizListContainer = document.getElementById('quizListContainer');
+const selectedQuizName  = document.getElementById('selectedQuizName');
+const nicknameInput     = document.getElementById('nicknameInput');
+const nicknameMsg       = document.getElementById('nicknameMsg');
+const avatarPicker      = document.getElementById('avatarPicker');
+const joinBtn           = document.getElementById('joinBtn');
+const backToListBtn     = document.getElementById('backToListBtn');
+const waitingNickname   = document.getElementById('waitingNickname');
+const waitingQuizName   = document.getElementById('waitingQuizName');
+
+const qNumber       = document.getElementById('qNumber');
+const timerDisplay  = document.getElementById('timerDisplay');
+const questionText  = document.getElementById('questionText');
+const optionsGrid   = document.getElementById('optionsGrid');
+const answerFeedback= document.getElementById('answerFeedback');
+
+const rankingSubtitle  = document.getElementById('rankingSubtitle');
+const myScoreDisplay   = document.getElementById('myScoreDisplay');
+const rankingTableBody = document.getElementById('rankingTableBody');
+const waitingNextMsg   = document.getElementById('waitingNextMsg');
+
+const stoppedRankingBody = document.getElementById('stoppedRankingBody');
+
+const podioContainer  = document.getElementById('podioContainer');
+const finalRankingBody= document.getElementById('finalRankingBody');
+const myFinalResult   = document.getElementById('myFinalResult');
+
+// ── Helpers ──
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function showOnly(step) {
+    [stepSelectQuiz, stepNickname, stepWaiting, stepInstructions, stepQuestion, stepRanking, stepStopped, stepFinished]
+        .forEach(el => el.classList.add('hidden'));
+    step.classList.remove('hidden');
+}
+function showMsg(el, text, type='') {
+    el.textContent = text;
+    el.className = 'message' + (type ? ' msg-'+type : '');
+    el.classList.remove('hidden');
+}
+
+// ── Catálogo de avatares tomado de la carpeta Avatares ──
+const AVATAR_CATALOG = [
+    { id: 1, name: 'El Vice',  path: 'Avatares/Avatar1.svg' },
+    { id: 2, name: 'El Presi', path: 'Avatares/Avatar2.svg' },
+    { id: 3, name: 'La Secre', path: 'Avatares/Avatar3.svg' },
+    { id: 4, name: 'Nacho',    path: 'Avatares/Avatar4.svg' },
+    { id: 5, name: 'Coyote',   path: 'Avatares/Avatar5.svg' },
+    { id: 6, name: 'Hacker',   path: 'Avatares/Avatar6.svg' },
+    { id: 7, name: 'Ninja',    path: 'Avatares/Avatar7.svg' },
+    { id: 8, name: 'Astro',    path: 'Avatares/Avatar8.svg' }
+];
+function getAvatarById(id) {
+    return AVATAR_CATALOG.find(a => a.id === Number(id)) || AVATAR_CATALOG[0];
+}
+function selectedAvatar() {
+    return getAvatarById(myAvatarId || 1);
+}
+function setAvatarFromSaved(data) {
+    const rawId = data && (data.avatarId || data.selectedAvatarId);
+    const av = getAvatarById(rawId || 1);
+    myAvatarId = av.id;
+    myAvatarPath = data && (data.avatarPath || (typeof data.avatar === 'string' && data.avatar.indexOf('/') >= 0 ? data.avatar : null)) || av.path;
+    myAvatarName = data && data.avatarName || av.name;
+    myAvatar = myAvatarPath;
+}
+function avatarMediaHtmlFromValues(avatarId, avatarPath, fallback, className) {
+    const av = getAvatarById(avatarId || 1);
+    const src = avatarPath || av.path;
+    if (src && /\.(svg|png|jpe?g|webp|gif)$/i.test(src)) {
+        return `<img src="${escapeHtml(src)}" alt="" class="${className || 'avatar-img-mini'}" loading="lazy" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend','<span class=&quot;player-avatar-fallback&quot;>🐺</span>')">`;
+    }
+    return `<span class="player-avatar-fallback">${escapeHtml(fallback || '🐺')}</span>`;
+}
+function avatarMediaHtml(pd, className) {
+    return avatarMediaHtmlFromValues(pd && pd.avatarId, pd && (pd.avatarPath || (typeof pd.avatar === 'string' && pd.avatar.indexOf('/') >= 0 ? pd.avatar : null)), pd && pd.avatar, className);
+}
+
+function renderAvatarPicker() {
+    if (!avatarPicker) return;
+    avatarPicker.innerHTML = '';
+    AVATAR_CATALOG.forEach(av => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'avatar-option avatar-image-option' + (Number(av.id) === Number(myAvatarId) ? ' selected' : '');
+        btn.innerHTML = `<img src=\"${escapeHtml(av.path)}\" alt=\"${escapeHtml(av.name)}\" loading=\"lazy\" onerror=\"this.closest(\'.avatar-option\').style.display=\'none\'\"><span>${escapeHtml(av.name)}</span>`;
+        btn.setAttribute('aria-label', 'Avatar ' + av.name);
+        btn.onclick = () => {
+            myAvatarId = av.id;
+            myAvatarPath = av.path;
+            myAvatarName = av.name;
+            myAvatar = av.path;
+            renderAvatarPicker();
+        };
+        avatarPicker.appendChild(btn);
+    });
+}
+function playerNameHtml(pd, isMe=false) {
+    const nick = escapeHtml(pd.nickname || '?');
+    return `<span class=\"player-name-cell\">${avatarMediaHtml(pd, 'avatar-img-mini')}<span>${nick}${isMe ? ' 👈' : ''}</span></span>`;
+}
+function normalizedStatus(d) {
+    return d.status || (Array.isArray(d.questions) ? 'waiting' : 'archived');
+}
+function isJoinableQuiz(d) {
+    const st = normalizedStatus(d);
+    return st === 'waiting' || st === 'active';
+}
+function sortByCreatedDesc(a, b) {
+    const av = a.data.createdAt && typeof a.data.createdAt.toMillis === 'function' ? a.data.createdAt.toMillis() : 0;
+    const bv = b.data.createdAt && typeof b.data.createdAt.toMillis === 'function' ? b.data.createdAt.toMillis() : 0;
+    if (av !== bv) return bv - av;
+    return (a.data.name || '').localeCompare(b.data.name || '');
+}
+
+// ── Modo de esta vista ──
+const MY_MODE = 'clasico';
+
+// ── Helpers reutilizables de instrucciones ──
+function getModeLabel(mode) {
+    return mode === 'supervivencia' ? 'Supervivencia' : 'Clásico';
+}
+function getModeEmoji(mode) {
+    return mode === 'supervivencia' ? '❤️' : '🎯';
+}
+function getModeInstructions(mode) {
+    if (mode === 'supervivencia') {
+        return [
+            'Empiezas con <strong>3 vidas</strong>. Cada vida cuenta.',
+            'Si <strong>fallas una pregunta</strong>, pierdes <strong>1 vida</strong>.',
+            'Si <strong>aciertas 3 preguntas consecutivas</strong>, ganas <strong>1 vida extra</strong>.',
+            'Si te quedas <strong>sin vidas</strong>, quedas eliminado y verás el quiz como espectador.',
+            'El <strong>ranking ordena</strong> a los jugadores por vidas restantes, aciertos y puntaje.',
+            'Responde con cabeza: aquí no se trata solo de ir rápido. Se trata de <strong>sobrevivir</strong>. 🐺'
+        ];
+    }
+    return [
+        'Responde cada pregunta antes de que termine el <strong>tiempo</strong>.',
+        'Cuanto <strong>más rápido</strong> aciertes, <strong>más puntos</strong> ganas (máximo 1500).',
+        'Si fallas, no ganas puntos en esa pregunta, pero <strong>sigues en juego</strong>.',
+        'El ranking se actualiza en <strong>tiempo real</strong> después de cada pregunta.',
+        'Gana quien sume <strong>más puntos</strong> al terminar el Coyohoot.',
+        '¡Suerte, coyote! 🐺'
+    ];
+}
+function renderInstructionsInto(container, mode) {
+    const items = getModeInstructions(mode);
+    const cls   = mode === 'supervivencia' ? 'instructions-list survival' : 'instructions-list';
+    container.innerHTML = `
+        <div class="instructions-panel">
+            <div style="margin-bottom:0.6rem;">
+                <span class="mode-badge mode-${mode}">${getModeEmoji(mode)} Modo ${getModeLabel(mode)}</span>
+            </div>
+            <ul class="${cls}">
+                ${items.map(t => `<li>${t}</li>`).join('')}
+            </ul>
+        </div>`;
+}
+
+// ── ¿El modo de este quiz es el correcto para esta página? (clasico) ──
+function quizModeOf(d) {
+    const raw = (d.gameMode || d.mode || d.modo || '').toString().toLowerCase();
+    return raw === 'supervivencia' || raw === 'survival' ? 'supervivencia' : 'clasico';
+}
+function quizMatchesMyMode(d) {
+    return quizModeOf(d) === MY_MODE;
+}
+
+// ═══════════════════════════════════════════
+// PASO 1: LISTA DE QUIZZES
+// ═══════════════════════════════════════════
+async function loadQuizList() {
+    quizListContainer.innerHTML = '<p class="small-text pulse">Cargando...</p>';
+    try {
+        // En las páginas específicas se conserva el filtro por modo, pero se consulta
+        // toda la colección para no excluir quizzes viejos sin status/createdAt.
+        const snap = await db.collection('coyohoots').get();
+        const quizzes = [];
+        snap.forEach(doc => {
+            const d = doc.data() || {};
+            if (!isJoinableQuiz(d)) return;
+            if (!quizMatchesMyMode(d)) return;
+            quizzes.push({ doc, data: d });
+        });
+        quizzes.sort(sortByCreatedDesc);
+
+        quizListContainer.innerHTML = '';
+        if (quizzes.length === 0) {
+            quizListContainer.innerHTML = `<p class="small-text">😔 No hay quizzes de modo <strong>${getModeLabel(MY_MODE)}</strong> disponibles. <br><br><a href="participante.html" style="color:#a78bfa;">↩️ Ver lista general</a></p>`;
+            return;
+        }
+
+        quizzes.forEach(({ doc, data: d }) => {
+            const btn = document.createElement('button');
+            btn.className = 'btn-primary full-w';
+            btn.style.marginBottom = '0.6rem';
+            btn.innerHTML = `🐺 ${escapeHtml(d.name)} <span style="font-size:0.75rem; opacity:0.75;">[${normalizedStatus(d)==='active'?'En curso':'Esperando'}]</span>`;
+            btn.onclick = () => selectQuiz(doc.id, d.name || '', normalizedStatus(d));
+            quizListContainer.appendChild(btn);
+        });
+    } catch(e) {
+        quizListContainer.innerHTML = `<p class="small-text msg-error">Error: ${e.message}</p>`;
+    }
+}
+
+function selectQuiz(id, name, status, options = {}) {
+    myQuizId = id;
+    selectedQuizName.textContent = '📝 ' + (name || 'Coyohoot seleccionado');
+    renderAvatarPicker();
+    nicknameMsg.classList.add('hidden');
+    joinBtn.disabled = false;
+
+    const savedData = getSavedSession();
+
+    // Cuando venimos desde participante.html con join=1, el usuario está eligiendo
+    // entrar de nuevo. Evitamos que una sesión vieja lo mande a una pantalla atorada.
+    if (options.forceJoinForm) {
+        clearSession();
+        showOnly(stepNickname);
+        return;
+    }
+
+    if (savedData && savedData.quizId === id && savedData.sessionId) {
+        // Validar que el sessionId guardado y el participante aún existan en Firestore.
+        db.collection('coyohoots').doc(id).get().then(async snap => {
+            if (!snap.exists) { clearSession(); showOnly(stepNickname); return; }
+            const d = snap.data() || {};
+            // Si el modo del quiz no es el de esta página, redirigir a la página correcta
+            if (!quizMatchesMyMode(d)) {
+                redirectToCorrectMode(d, id);
+                return;
+            }
+            if (d.sessionId && d.sessionId !== savedData.sessionId) {
+                clearSession();
+                showOnly(stepNickname);
+                return;
+            }
+            const partSnap = await db.collection('coyohoots').doc(id)
+                .collection('participants').doc(savedData.participantId).get();
+            if (!partSnap.exists) {
+                clearSession();
+                showOnly(stepNickname);
+                return;
+            }
+            // Sesión válida — reconectar
+            myNickname = savedData.nickname;
+            setAvatarFromSaved(savedData);
+            myParticipantId = savedData.participantId;
+            mySessionId = savedData.sessionId;
+            answeredQuestions = savedData.answeredQuestions || {};
+            waitingNickname.textContent = myNickname;
+            waitingQuizName.textContent = d.name || name || '';
+            startGameListener(id);
+        }).catch(() => { clearSession(); showOnly(stepNickname); });
+        return;
+    }
+
+    showOnly(stepNickname);
+}
+
+// Si el quiz seleccionado es de otro modo, redirigir a esa página manteniendo el quizId
+function redirectToCorrectMode(quizData, quizId) {
+    const mode = quizModeOf(quizData);
+    const targetPage = mode === 'supervivencia' ? 'supervivencia.html' : 'clasico.html';
+    localStorage.setItem(PENDING_JOIN_KEY, JSON.stringify({
+        quizId,
+        quizName: quizData.name || '',
+        mode,
+        ts: Date.now()
+    }));
+    window.location.href = `${targetPage}?quizId=${encodeURIComponent(quizId)}&quizName=${encodeURIComponent(quizData.name || '')}&join=1`;
+}
+
+backToListBtn.addEventListener('click', () => {
+    myQuizId = null;
+    showOnly(stepSelectQuiz);
+    loadQuizList();
+});
+
+// ═══════════════════════════════════════════
+// PASO 2: REGISTRO
+// ═══════════════════════════════════════════
+joinBtn.addEventListener('click', registerNickname);
+nicknameInput.addEventListener('keydown', e => { if(e.key==='Enter') registerNickname(); });
+
+async function registerNickname() {
+    const nick = nicknameInput.value.trim();
+    if (!nick) { showMsg(nicknameMsg, '❌ Escribe un nickname.', 'error'); return; }
+    if (nick.length < 2) { showMsg(nicknameMsg, '❌ Nickname muy corto.', 'error'); return; }
+
+    joinBtn.disabled = true;
+    try {
+        const existing = await db.collection('coyohoots').doc(myQuizId)
+            .collection('participants')
+            .where('nickname', '==', nick).get();
+
+        if (!existing.empty) {
+            showMsg(nicknameMsg, '⚠️ Ese nickname ya está en uso. Elige otro.', 'warn');
+            joinBtn.disabled = false;
+            return;
+        }
+
+        const quizSnap = await db.collection('coyohoots').doc(myQuizId).get();
+        const quizData = quizSnap.data();
+        if (normalizedStatus(quizData) === 'finished' || normalizedStatus(quizData) === 'stopped' || quizData.isStopped) {
+            showMsg(nicknameMsg, '🏁 Este quiz ya terminó.', 'warn');
+            joinBtn.disabled = false;
+            return;
+        }
+
+        const partRef = await db.collection('coyohoots').doc(myQuizId)
+            .collection('participants').add({
+                nickname: nick,
+                avatar: myAvatar,
+                avatarId: selectedAvatar().id,
+                avatarPath: selectedAvatar().path,
+                avatarName: selectedAvatar().name,
+                totalScore: 0,
+                joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                lastResponseTime: null,
+                sessionId: quizData.sessionId || ''
+            });
+
+        myNickname = nick;
+        myParticipantId = partRef.id;
+        mySessionId = quizData.sessionId || '';
+        answeredQuestions = {};
+        saveSession();
+        clearPendingJoin();
+
+        waitingNickname.textContent = nick;
+        waitingQuizName.textContent = quizData.name || '';
+        startGameListener(myQuizId);
+
+    } catch(e) {
+        showMsg(nicknameMsg, '❌ Error: ' + e.message, 'error');
+        joinBtn.disabled = false;
+    }
+}
+
+// ═══════════════════════════════════════════
+// LISTENER PRINCIPAL DEL JUEGO
+// ═══════════════════════════════════════════
+function startGameListener(quizId) {
+    if (gameUnsub) gameUnsub();
+    showOnly(stepWaiting);
+
+    gameUnsub = db.collection('coyohoots').doc(quizId).onSnapshot(snap => {
+        if (!snap.exists) return;
+        const data = snap.data();
+        handleGameState(data);
+    });
+}
+
+function handleGameState(data) {
+    const status = normalizedStatus(data);
+    const { currentQuestion, questions, showRanking, questionDeadline, isStopped, sessionId, roundState } = data;
+    const mode = quizModeOf(data);
+
+    // ── Validar sesión ──
+    if (sessionId && mySessionId && sessionId !== mySessionId) {
+        stopTimer();
+        if (gameUnsub) { gameUnsub(); gameUnsub = null; }
+        clearSession();
+        showOnly(stepSelectQuiz);
+        loadQuizList();
+        return;
+    }
+
+    if (status === 'waiting') {
+        stopTimer();
+        if (roundState === 'instructions') {
+            renderInstructionsInto(instructionsBody, mode);
+            showOnly(stepInstructions);
+        } else {
+            showOnly(stepWaiting);
+        }
+        return;
+    }
+
+    // Juego detenido manualmente por el admin
+    if ((status === 'stopped') || (status === 'finished' && isStopped)) {
+        stopTimer();
+        showStoppedScreen();
+        return;
+    }
+
+    if (status === 'finished') {
+        stopTimer();
+        showFinalResults(data);
+        return;
+    }
+
+    if (status === 'active') {
+        const qIdx = currentQuestion ?? 0;
+
+        if (showRanking) {
+            stopTimer();
+            showQuestionRanking(data, qIdx);
+            return;
+        }
+
+        // Mostrar pregunta activa
+        const q = (questions || [])[qIdx];
+        if (!q) return;
+
+        if (qIdx !== currentQIdx || questionDeadline !== lastDeadlineSeen) {
+            currentQIdx = qIdx;
+            currentQData = q;
+            lastDeadlineSeen = questionDeadline;
+            renderQuestion(q, qIdx, (questions||[]).length, questionDeadline);
+        }
+    }
+}
+
+// ═══════════════════════════════════════════
+// PREGUNTA
+// ═══════════════════════════════════════════
+function renderQuestion(q, qIdx, total, deadline) {
+    showOnly(stepQuestion);
+    qNumber.textContent = `Pregunta ${qIdx+1} de ${total}`;
+    questionText.textContent = q.text || '';
+    answerFeedback.classList.add('hidden');
+
+    optionsGrid.innerHTML = '';
+    const alreadyAnswered = answeredQuestions[qIdx] === true;
+    q.options.forEach((opt, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.textContent = opt;
+        btn.dataset.optIdx = i;
+        if (alreadyAnswered) {
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+        } else {
+            btn.addEventListener('click', () => submitAnswer(qIdx, i, q, deadline));
+        }
+        optionsGrid.appendChild(btn);
+    });
+
+    if (alreadyAnswered) {
+        showMsg(answerFeedback, '✅ Ya respondiste esta pregunta. Espera el ranking.', '');
+    }
+
+    startTimer(deadline, q.timeLimit);
+}
+
+function startTimer(deadline, totalSecs) {
+    stopTimer();
+    const td = timerDisplay;
+    function tick() {
+        const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+        td.textContent = remaining;
+        const pct = (remaining / (totalSecs||30)) * 100;
+        td.style.setProperty('--progress', pct + '%');
+        if (remaining <= 5) td.classList.add('urgent');
+        else td.classList.remove('urgent');
+        if (remaining <= 0) {
+            stopTimer();
+            // El admin (o el propio snapshot) disparará showRanking:true en Firebase.
+            // Si el participante ya respondió, deshabilitar opciones como respaldo.
+            disableOptions();
+        }
+    }
+    tick();
+    timerInterval = setInterval(tick, 500);
+}
+
+function stopTimer() {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+}
+
+// ═══════════════════════════════════════════
+// ENVIAR RESPUESTA
+// ═══════════════════════════════════════════
+async function submitAnswer(qIdx, optIdx, q, deadline) {
+    if (answeredQuestions[qIdx]) return;
+
+    const now = Date.now();
+    if (now > deadline) {
+        showMsg(answerFeedback, '⌛ Tiempo agotado. No se puede responder.', 'error');
+        disableOptions();
+        return;
+    }
+
+    disableOptions();
+    answeredQuestions[qIdx] = true;
+    saveSession();
+
+    const isCorrect = optIdx === q.correct;
+    const timeLimit = q.timeLimit || 30;
+    const elapsed = (now - (deadline - timeLimit * 1000)) / 1000;
+    const timeLeft = Math.max(0, timeLimit - elapsed);
+
+    let score = 0;
+    if (isCorrect) {
+        score = 1000 + Math.round((timeLeft / timeLimit) * 500);
+    }
+
+    const optBtns = optionsGrid.querySelectorAll('.option-btn');
+    optBtns.forEach((btn, i) => {
+        if (i === q.correct) btn.classList.add('correct');
+        else if (i === optIdx && !isCorrect) btn.classList.add('wrong');
+    });
+    optBtns[optIdx].classList.add('selected');
+
+    if (isCorrect) {
+        showMsg(answerFeedback, `✅ ¡Correcto! +${score} puntos`, 'success');
+    } else {
+        showMsg(answerFeedback, `❌ Incorrecto. La respuesta era: ${escapeHtml(q.options[q.correct])}`, 'error');
+    }
+
+    try {
+        await db.runTransaction(async (t) => {
+            const quizRef = db.collection('coyohoots').doc(myQuizId);
+            const quizSnap = await t.get(quizRef);
+            const liveQuiz = quizSnap.data() || {};
+            const liveStatus = normalizedStatus(liveQuiz);
+            const liveDeadline = liveQuiz.questionDeadline || deadline;
+            if (liveStatus !== 'active' || liveQuiz.isStopped || liveQuiz.showRanking || (liveQuiz.currentQuestion ?? 0) !== qIdx || Date.now() > liveDeadline) {
+                throw new Error('QUESTION_CLOSED');
+            }
+            if (liveQuiz.sessionId && mySessionId && liveQuiz.sessionId !== mySessionId) {
+                throw new Error('SESSION_CLOSED');
+            }
+
+            const partRef = quizRef.collection('participants').doc(myParticipantId);
+            const partSnap = await t.get(partRef);
+            const partData = partSnap.data() || {};
+            const prevScore = partData.totalScore || 0;
+
+            const respRef = db.collection('coyohoots').doc(myQuizId)
+                .collection('responses').doc(`${myParticipantId}_q${qIdx}`);
+            t.set(respRef, {
+                participantId: myParticipantId,
+                nickname: myNickname,
+                questionIdx: qIdx,
+                answer: optIdx,
+                correct: isCorrect,
+                score,
+                responseTime: elapsed,
+                answeredAt: now
+            });
+
+            t.update(partRef, {
+                totalScore: prevScore + score,
+                lastResponseTime: now
+            });
+        });
+    } catch(e) {
+        console.error('Error guardando respuesta:', e);
+        delete answeredQuestions[qIdx];
+        saveSession();
+        disableOptions();
+        showMsg(answerFeedback, '⏹️ La pregunta ya fue cerrada. No se guardó tu respuesta.', 'warn');
+    }
+}
+
+function disableOptions() {
+    optionsGrid.querySelectorAll('.option-btn').forEach(btn => btn.disabled = true);
+}
+
+// ═══════════════════════════════════════════
+// RANKING POR PREGUNTA
+// ═══════════════════════════════════════════
+async function showQuestionRanking(data, qIdx) {
+    showOnly(stepRanking);
+    const total = (data.questions||[]).length;
+    rankingSubtitle.textContent = `Ranking después de la pregunta ${qIdx+1} de ${total}`;
+
+    if (qIdx + 1 >= total) {
+        waitingNextMsg.textContent = '⏳ El admin está a punto de mostrar el resultado final...';
+    } else {
+        waitingNextMsg.textContent = `⏳ Esperando la pregunta ${qIdx+2}...`;
+    }
+
+    try {
+        const snap = await db.collection('coyohoots').doc(myQuizId)
+            .collection('participants')
+            .orderBy('totalScore', 'desc').get();
+
+        rankingTableBody.innerHTML = '';
+        let pos = 1;
+        let myScore = 0;
+        snap.forEach(d => {
+            const pd = d.data();
+            if (d.id === myParticipantId) myScore = pd.totalScore || 0;
+            const tr = document.createElement('tr');
+            if (pos===1) tr.className='top-1';
+            else if (pos===2) tr.className='top-2';
+            else if (pos===3) tr.className='top-3';
+            const medal = pos===1?'🥇':pos===2?'🥈':pos===3?'🥉':pos+'.';
+            tr.innerHTML = `<td>${medal}</td><td>${playerNameHtml(pd, d.id===myParticipantId)}</td><td>${pd.totalScore||0}</td>`;
+            rankingTableBody.appendChild(tr);
+            pos++;
+        });
+
+        const myRespRef = db.collection('coyohoots').doc(myQuizId)
+            .collection('responses').doc(`${myParticipantId}_q${qIdx}`);
+        const myResp = await myRespRef.get();
+        let qScore = 0;
+        if (myResp.exists) qScore = myResp.data().score || 0;
+        myScoreDisplay.innerHTML = `<span class="badge">Tu puntaje total: ${myScore} pts &nbsp;|&nbsp; Esta pregunta: +${qScore}</span>`;
+
+    } catch(e) {
+        rankingTableBody.innerHTML = `<tr><td colspan="3">Error: ${escapeHtml(e.message)}</td></tr>`;
+    }
+}
+
+// ═══════════════════════════════════════════
+// PANTALLA DE JUEGO DETENIDO (nuevo)
+// ═══════════════════════════════════════════
+async function showStoppedScreen() {
+    showOnly(stepStopped);
+    clearSession();
+
+    try {
+        const snap = await db.collection('coyohoots').doc(myQuizId)
+            .collection('participants')
+            .orderBy('totalScore', 'desc').get();
+
+        stoppedRankingBody.innerHTML = '';
+        let pos = 1;
+        snap.forEach(d => {
+            const pd = d.data();
+            const tr = document.createElement('tr');
+            if (pos===1) tr.className='top-1';
+            else if (pos===2) tr.className='top-2';
+            else if (pos===3) tr.className='top-3';
+            const medal = pos===1?'🥇':pos===2?'🥈':pos===3?'🥉':pos+'.';
+            const isMe = d.id === myParticipantId;
+            tr.innerHTML = `<td>${medal}</td><td>${playerNameHtml(pd, isMe)}</td><td>${pd.totalScore||0}</td>`;
+            stoppedRankingBody.appendChild(tr);
+            pos++;
+        });
+    } catch(e) {
+        stoppedRankingBody.innerHTML = `<tr><td colspan="3">Error al cargar ranking</td></tr>`;
+    }
+}
+
+// ═══════════════════════════════════════════
+// PODIO FINAL
+// ═══════════════════════════════════════════
+async function showFinalResults(data) {
+    showOnly(stepFinished);
+
+    try {
+        const snap = await db.collection('coyohoots').doc(myQuizId)
+            .collection('participants')
+            .orderBy('totalScore', 'desc').get();
+
+        const participants = [];
+        snap.forEach(d => participants.push({ id: d.id, ...d.data() }));
+
+        podioContainer.innerHTML = '';
+        const podioOrder = [1, 0, 2];
+        podioOrder.forEach(pos => {
+            const p = participants[pos];
+            if (!p) return;
+            const slot = document.createElement('div');
+            slot.className = `podio-slot pos-${pos+1}`;
+            const emojis = ['🥇','🥈','🥉'];
+            slot.innerHTML = `
+                <div class="podio-avatar">${avatarMediaHtml(p, 'podio-avatar-img')}</div>
+                <div class="podio-name">${escapeHtml(p.nickname||'?')}</div>
+                <div class="podio-score">${p.totalScore||0} pts</div>
+                <div class="podio-bar"></div>
+            `;
+            podioContainer.appendChild(slot);
+        });
+
+        finalRankingBody.innerHTML = '';
+        let pos = 1;
+        participants.forEach(p => {
+            const tr = document.createElement('tr');
+            if (pos===1) tr.className='top-1';
+            else if (pos===2) tr.className='top-2';
+            else if (pos===3) tr.className='top-3';
+            const medal = pos===1?'🥇':pos===2?'🥈':pos===3?'🥉':pos+'.';
+            const isMe = p.id === myParticipantId;
+            tr.innerHTML = `<td>${medal}</td><td>${playerNameHtml(p, isMe)}</td><td>${p.totalScore||0}</td>`;
+            finalRankingBody.appendChild(tr);
+            pos++;
+        });
+
+        const myPos = participants.findIndex(p => p.id === myParticipantId) + 1;
+        if (myPos > 0) {
+            const myData = participants[myPos-1];
+            let msg = '';
+            if (myPos === 1) msg = `🥇 ¡GANASTE! Primer lugar con ${myData.totalScore} puntos. ¡Eres el Coyote Supremo! 🐺`;
+            else if (myPos === 2) msg = `🥈 ¡Segundo lugar! ${myData.totalScore} puntos. Muy bien jugado.`;
+            else if (myPos === 3) msg = `🥉 ¡Tercer lugar! ${myData.totalScore} puntos. ¡Buen trabajo!`;
+            else msg = `Quedaste en el puesto ${myPos} con ${myData.totalScore} puntos. ¡Sigue practicando!`;
+            showMsg(myFinalResult, msg, myPos <= 3 ? 'success' : '');
+        }
+
+        clearSession();
+
+    } catch(e) {
+        finalRankingBody.innerHTML = `<tr><td colspan="3">Error: ${escapeHtml(e.message)}</td></tr>`;
+    }
+}
+
+// ═══════════════════════════════════════════
+// PERSISTENCIA LOCAL DE SESIÓN
+// ═══════════════════════════════════════════
+const SESSION_KEY = 'coyohoot_session';
+
+function saveSession() {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+        quizId: myQuizId,
+        nickname: myNickname,
+        avatar: myAvatar,
+        avatarId: myAvatarId,
+        avatarPath: myAvatarPath,
+        avatarName: myAvatarName,
+        participantId: myParticipantId,
+        sessionId: mySessionId,
+        answeredQuestions
+    }));
+}
+
+function getSavedSession() {
+    try {
+        const raw = localStorage.getItem(SESSION_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch(e) { return null; }
+}
+
+function clearSession() {
+    localStorage.removeItem(SESSION_KEY);
+}
+const PENDING_JOIN_KEY = 'coyohoot_pending_join';
+function getPendingJoin() {
+    try {
+        const raw = localStorage.getItem(PENDING_JOIN_KEY);
+        const pending = raw ? JSON.parse(raw) : null;
+        if (!pending || !pending.quizId) return null;
+        // Caduca rápido para que no estorbe futuras entradas.
+        if (Date.now() - (pending.ts || 0) > 10 * 60 * 1000) {
+            localStorage.removeItem(PENDING_JOIN_KEY);
+            return null;
+        }
+        return pending;
+    } catch(e) { return null; }
+}
+function clearPendingJoin() {
+    localStorage.removeItem(PENDING_JOIN_KEY);
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+(function init() {
+    // Si la URL trae ?quizId=, ir directamente a la selección de ese quiz
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlQuizId = urlParams.get('quizId');
+    const pendingJoin = getPendingJoin();
+
+    // Fallback importante: si el usuario ya eligió un quiz desde participante.html,
+    // pero la URL llegó sin querystring (cache/hosting/navegación), abrimos de todos
+    // modos el formulario de nombre/avatar para ese Coyohoot.
+    if (!urlQuizId && pendingJoin && pendingJoin.mode === MY_MODE) {
+        clearSession();
+        selectQuiz(pendingJoin.quizId, pendingJoin.quizName || '', 'waiting', { forceJoinForm: true });
+        db.collection('coyohoots').doc(pendingJoin.quizId).get().then(snap => {
+            if (!snap.exists) { clearPendingJoin(); showOnly(stepSelectQuiz); loadQuizList(); return; }
+            const d = snap.data() || {};
+            if (!quizMatchesMyMode(d)) { redirectToCorrectMode(d, pendingJoin.quizId); return; }
+            selectedQuizName.textContent = '📝 ' + (d.name || pendingJoin.quizName || 'Coyohoot seleccionado');
+        }).catch(() => {});
+        return;
+    }
+    if (!urlQuizId && pendingJoin && pendingJoin.mode && pendingJoin.mode !== MY_MODE) {
+        const targetPage = pendingJoin.mode === 'supervivencia' ? 'supervivencia.html' : 'clasico.html';
+        window.location.href = `${targetPage}?quizId=${encodeURIComponent(pendingJoin.quizId)}&quizName=${encodeURIComponent(pendingJoin.quizName || '')}&join=1`;
+        return;
+    }
+
+    if (urlQuizId) {
+        const urlQuizName = urlParams.get('quizName') || '';
+        const forceJoinForm = urlParams.get('join') === '1';
+
+        // Si venimos desde la lista general, no dejamos visible la lista en "Cargando".
+        // Mostramos el formulario de nickname de inmediato y validamos Firebase en segundo plano.
+        if (urlQuizName || forceJoinForm) {
+            selectQuiz(urlQuizId, urlQuizName, 'waiting', { forceJoinForm });
+        }
+
+        db.collection('coyohoots').doc(urlQuizId).get().then(snap => {
+            if (!snap.exists) { clearSession(); showOnly(stepSelectQuiz); loadQuizList(); return; }
+            const d = snap.data() || {};
+            if (!quizMatchesMyMode(d)) {
+                redirectToCorrectMode(d, urlQuizId);
+                return;
+            }
+            if (normalizedStatus(d) === 'finished' || normalizedStatus(d) === 'stopped' || d.isStopped) {
+                clearSession(); showOnly(stepSelectQuiz); loadQuizList(); return;
+            }
+            if (!(urlQuizName || forceJoinForm)) {
+                selectQuiz(urlQuizId, d.name || '', d.status);
+            } else {
+                selectedQuizName.textContent = '📝 ' + (d.name || urlQuizName || 'Coyohoot seleccionado');
+            }
+        }).catch(() => {
+            if (!(urlQuizName || forceJoinForm)) { showOnly(stepSelectQuiz); loadQuizList(); }
+        });
+        return;
+    }
+
+    const saved = getSavedSession();
+    if (saved && saved.quizId && saved.nickname && saved.participantId) {
+        let savedResolved = false;
+        const savedFallback = setTimeout(() => {
+            if (!savedResolved) {
+                clearSession();
+                showOnly(stepSelectQuiz);
+                loadQuizList();
+            }
+        }, 2500);
+        myQuizId = saved.quizId;
+        myNickname = saved.nickname;
+        setAvatarFromSaved(saved);
+        myParticipantId = saved.participantId;
+        mySessionId = saved.sessionId || null;
+        answeredQuestions = saved.answeredQuestions || {};
+        db.collection('coyohoots').doc(myQuizId).get().then(snap => {
+            savedResolved = true;
+            clearTimeout(savedFallback);
+            if (!snap.exists) {
+                clearSession(); showOnly(stepSelectQuiz); loadQuizList(); return;
+            }
+            const d = snap.data();
+
+            // Si la sesión guardada apunta a un quiz de otro modo, redirigir
+            if (!quizMatchesMyMode(d)) {
+                redirectToCorrectMode(d, myQuizId);
+                return;
+            }
+
+            // Validar sessionId
+            if (d.sessionId && mySessionId && d.sessionId !== mySessionId) {
+                clearSession(); showOnly(stepSelectQuiz); loadQuizList(); return;
+            }
+
+            if (normalizedStatus(d) === 'stopped' || (normalizedStatus(d) === 'finished' && d.isStopped)) {
+                showStoppedScreen(); return;
+            }
+            if (normalizedStatus(d) === 'finished') {
+                clearSession(); showOnly(stepSelectQuiz); loadQuizList(); return;
+            }
+            waitingNickname.textContent = myNickname;
+            waitingQuizName.textContent = d.name || '';
+            startGameListener(myQuizId);
+        }).catch(() => {
+            savedResolved = true;
+            clearTimeout(savedFallback);
+            clearSession(); showOnly(stepSelectQuiz); loadQuizList();
+        });
+    } else {
+        showOnly(stepSelectQuiz);
+        loadQuizList();
+    }
+})();
+</script>
+</body>
+</html>

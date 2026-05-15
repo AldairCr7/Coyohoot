@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coyohoot | Modo Boss</title>
+    <link rel="icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="apple-touch-icon" href="logo.jpeg">
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div class="page-container">
+  <div class="top-bar"></div>
+  <div class="content">
+    <div class="logo-container"><img src="logo.jpeg" alt="Coyohoot" class="logo"></div>
+
+    <div id="stepSelectQuiz">
+      <h2>👹 Modo Boss</h2>
+      <p class="subtitle"><span class="mode-badge mode-boss">👹 Boss Fight</span><br><br>Elige el Coyohoot al que quieres unirte</p>
+      <div id="quizListContainer" class="card"><p class="small-text pulse">Cargando quizzes disponibles...</p></div>
+      <div class="nav-buttons"><a href="index.html" class="btn-outline">🏠 Inicio</a><a href="participante.html" class="btn-outline">↩️ Lista general</a></div>
+    </div>
+
+    <div id="stepNickname" class="hidden">
+      <h2>👹 Únete al equipo</h2>
+      <div class="card">
+        <div id="selectedQuizName" style="color:#c4b5fd; font-weight:700; margin-bottom:1rem;"></div>
+        <div class="input-group"><label>🌟 Tu nickname</label><input type="text" id="nicknameInput" placeholder="Ej: CoyoteBoss" autocomplete="off" maxlength="20"></div>
+        <div class="input-group"><label>🐺 Elige tu avatar</label><div id="avatarPicker" class="avatar-picker"></div></div>
+        <button id="joinBtn" class="btn-primary full-w">Unirme al Boss Fight 👹</button>
+        <div id="nicknameMsg" class="message hidden"></div>
+      </div>
+      <div class="nav-buttons"><button id="backToListBtn" class="btn-outline">← Volver</button></div>
+    </div>
+
+    <div id="stepWaiting" class="hidden">
+      <h2>⏳ Sala de espera</h2>
+      <div class="card center">
+        <div style="margin-bottom:0.8rem;"><span class="mode-badge mode-boss">👹 Modo Boss</span></div>
+        <p class="small-text">Listo como</p>
+        <p id="waitingNickname" style="color:#c4b5fd; font-size:1.3rem; font-weight:800; margin:0.3rem 0;"></p>
+        <p class="small-text">en <span id="waitingQuizName" style="color:#a78bfa;"></span></p>
+        <div class="status-pill waiting pulse mt-2">⏳ Esperando que el admin inicie...</div>
+      </div>
+    </div>
+
+    <div id="stepInstructions" class="hidden">
+      <h2>📖 Reglas del Boss Fight</h2>
+      <div class="card">
+        <div class="instructions-panel">
+          <span class="mode-badge mode-boss">👹 Boss Fight</span>
+          <ul class="instructions-list boss mt-1">
+            <li>Todos juegan juntos contra un <strong>boss común</strong>.</li>
+            <li>El boss tiene <strong>100 HP</strong> y el equipo también tiene <strong>100 HP</strong>.</li>
+            <li>En cada ronda, si falla el <strong>50% o más</strong> del equipo, los participantes pierden <strong>5 HP</strong>.</li>
+            <li>Si falla <strong>menos del 50%</strong>, el boss pierde <strong>5 HP</strong>.</li>
+            <li>Ganan todos si el boss llega a 0 HP. Pierden todos si el equipo llega a 0 HP.</li>
+          </ul>
+        </div>
+        <div class="instruction-tip">Tip: cada respuesta cuenta para salvar al equipo.</div><div class="status-pill waiting pulse mt-2">⏳ Esperando que inicie la batalla...</div>
+      </div>
+    </div>
+
+    <div id="stepQuestion" class="hidden">
+      <div id="qHeader" style="margin-bottom:0.5rem;"><span class="question-number" id="qNumber">Pregunta</span></div>
+      <div id="bossBasicHud" class="boss-basic-hud"></div>
+      <div class="timer-ring-wrap"><div class="timer-display" id="timerDisplay">30</div></div>
+      <div class="card">
+        <p class="question-text" id="questionText">¿Cargando pregunta?</p>
+        <div class="options-grid" id="optionsGrid"></div>
+        <div id="answerFeedback" class="message hidden"></div>
+      </div>
+    </div>
+
+    <div id="stepFinished" class="hidden">
+      <h2 id="finalTitle">👹 Boss Fight terminado</h2>
+      <div class="card center">
+        <div id="finalBadge" class="big section-title"></div>
+        <p id="finalMsg" class="hint"></p>
+        <p id="myContribution" class="small-text mt-2"></p>
+        <div class="nav-buttons mt-2"><a href="index.html" class="btn-outline">🏠 Volver al inicio</a></div>
+      </div>
+    </div>
+
+    <div id="stepStopped" class="hidden">
+      <h2>⏹️ Boss detenido</h2>
+      <div class="card center"><div class="status-pill finished">El admin detuvo el Coyohoot</div><p class="small-text mt-2">Ya no se aceptan respuestas.</p></div>
+    </div>
+  </div>
+  <div class="top-bar" style="margin-top:1rem;"></div>
+</div>
+
+<script src="firebase.js"></script>
+<script>
+const MY_MODE='boss';
+const SESSION_KEY='coyohoot_session';
+const PENDING_JOIN_KEY='coyohoot_pending_join';
+const AVATAR_CATALOG_ALL=[{id:1,name:'El Vice',path:'Avatares/Avatar1.svg'},{id:2,name:'El Presi',path:'Avatares/Avatar2.svg'},{id:3,name:'La Secre',path:'Avatares/Avatar3.svg'},{id:4,name:'Nachito',path:'Avatares/Avatar4.svg'},{id:5,name:'Avatar 5',path:'Avatares/Avatar5.svg'},{id:6,name:'Avatar 6',path:'Avatares/Avatar6.svg'},{id:7,name:'Avatar 7',path:'Avatares/Avatar7.svg'},{id:8,name:'Avatar 8',path:'Avatares/Avatar8.svg'}];
+let AVATARS=[AVATAR_CATALOG_ALL[0]];
+function avatarFileExists(src){return new Promise(resolve=>{const img=new Image(); img.onload=()=>resolve(true); img.onerror=()=>resolve(false); img.src=src;});}
+async function loadAvailableAvatars(){try{const checked=await Promise.all(AVATAR_CATALOG_ALL.map(async a=>(await avatarFileExists(a.path))?a:null)); AVATARS=checked.filter(Boolean); if(!AVATARS.length)AVATARS=[AVATAR_CATALOG_ALL[0]]; if(!AVATARS.some(a=>Number(a.id)===Number(selectedAvatarId)))selectedAvatarId=AVATARS[0].id; renderAvatarPicker();}catch(e){AVATARS=[AVATAR_CATALOG_ALL[0]]; renderAvatarPicker();}}
+let selectedAvatarId=1;
+let myQuizId=null,myNickname=null,myParticipantId=null,mySessionId=null;
+let timerInterval=null,gameUnsub=null,participantUnsub=null,quizCache=null;
+let myQuestionSeq=0,activeSeq=-1,activeDeadline=null,myStats={damageDealt:0,bossCorrect:0,bossAnswered:0};
+const $=id=>document.getElementById(id);
+const stepSelectQuiz=$('stepSelectQuiz'),stepNickname=$('stepNickname'),stepWaiting=$('stepWaiting'),stepInstructions=$('stepInstructions'),stepQuestion=$('stepQuestion'),stepFinished=$('stepFinished'),stepStopped=$('stepStopped');
+const quizListContainer=$('quizListContainer'),selectedQuizName=$('selectedQuizName'),nicknameInput=$('nicknameInput'),nicknameMsg=$('nicknameMsg'),avatarPicker=$('avatarPicker'),joinBtn=$('joinBtn'),backToListBtn=$('backToListBtn');
+const waitingNickname=$('waitingNickname'),waitingQuizName=$('waitingQuizName'),qNumber=$('qNumber'),bossBasicHud=$('bossBasicHud'),timerDisplay=$('timerDisplay'),questionText=$('questionText'),optionsGrid=$('optionsGrid'),answerFeedback=$('answerFeedback'),finalTitle=$('finalTitle'),finalBadge=$('finalBadge'),finalMsg=$('finalMsg'),myContribution=$('myContribution');
+function escapeHtml(str){return String(str||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function showOnly(el){[stepSelectQuiz,stepNickname,stepWaiting,stepInstructions,stepQuestion,stepFinished,stepStopped].forEach(x=>x.classList.add('hidden')); el.classList.remove('hidden');}
+function showMsg(el,msg,type=''){el.innerHTML=msg; el.className='message'+(type?' msg-'+type:''); el.classList.remove('hidden');}
+function normalizedStatus(d){return d.status || (Array.isArray(d.questions)?'waiting':'archived');}
+function modeOf(d){const raw=(d.gameMode||d.mode||d.modo||d.modeId||'').toString().toLowerCase(); if(raw==='supervivencia'||raw==='survival')return'supervivencia'; if(raw==='carrera'||raw==='race')return'carrera'; if(raw==='boss'||raw==='bossfight'||raw==='boss_fight'||raw==='jefe')return'boss'; if(raw==='battle'||raw==='battle_royale'||raw==='battleroyale'||raw==='royale'||raw==='duelo')return'battle'; if(raw==='caos'||raw==='chaos'||raw==='random')return'caos'; return'clasico';}
+function targetPage(m){return m==='caos'?'caos-participante.html':m==='battle'?'battle-participante.html':m==='boss'?'boss-participante.html':m==='carrera'?'carrera.html':m==='supervivencia'?'supervivencia.html':'clasico.html';}
+function isJoinableQuiz(d){const st=normalizedStatus(d); return st==='waiting'||st==='active';}
+function sortByCreatedDesc(a,b){const av=a.data.createdAt&&a.data.createdAt.toMillis?a.data.createdAt.toMillis():0; const bv=b.data.createdAt&&b.data.createdAt.toMillis?b.data.createdAt.toMillis():0; return bv-av || (a.data.name||'').localeCompare(b.data.name||'');}
+function selectedAvatar(){return AVATARS.find(a=>a.id===selectedAvatarId)||AVATARS[0];}
+function renderAvatarPicker(){avatarPicker.innerHTML=''; const list=AVATARS.length?AVATARS:[AVATAR_CATALOG_ALL[0]]; list.forEach(a=>{const b=document.createElement('button'); b.type='button'; b.className='avatar-option avatar-image-option'+(a.id===selectedAvatarId?' selected':''); b.innerHTML=`<span class="avatar-card-shine"></span><span class="avatar-image-ring"><img src="${a.path}" alt="${a.name}" loading="lazy"></span><span class="avatar-name">${a.name}</span><span class="avatar-check">✓</span>`; b.onclick=()=>{selectedAvatarId=a.id; renderAvatarPicker();}; avatarPicker.appendChild(b);});}
+loadAvailableAvatars();
+function saveSession(){localStorage.setItem(SESSION_KEY,JSON.stringify({quizId:myQuizId,nickname:myNickname,participantId:myParticipantId,sessionId:mySessionId,mode:MY_MODE,avatarId:selectedAvatarId,bossQuestionSeq:myQuestionSeq}));}
+function getSavedSession(){try{const r=localStorage.getItem(SESSION_KEY);return r?JSON.parse(r):null;}catch(e){return null;}}
+function clearSession(){localStorage.removeItem(SESSION_KEY);} function getPendingJoin(){try{const r=localStorage.getItem(PENDING_JOIN_KEY); const p=r?JSON.parse(r):null; if(!p||!p.quizId)return null; if(Date.now()-(p.ts||0)>10*60*1000){localStorage.removeItem(PENDING_JOIN_KEY);return null;} return p;}catch(e){return null;}} function clearPendingJoin(){localStorage.removeItem(PENDING_JOIN_KEY);}
+async function loadQuizList(){quizListContainer.innerHTML='<p class="small-text pulse">Cargando...</p>'; try{const snap=await db.collection('coyohoots').get(); const qs=[]; snap.forEach(doc=>{const d=doc.data()||{}; if(isJoinableQuiz(d)&&modeOf(d)===MY_MODE)qs.push({doc,data:d});}); qs.sort(sortByCreatedDesc); quizListContainer.innerHTML=''; if(!qs.length){quizListContainer.innerHTML='<p class="small-text">😔 No hay Boss Fights disponibles.</p>';return;} qs.forEach(({doc,data:d})=>{const b=document.createElement('button'); b.className='btn-primary full-w'; b.style.marginBottom='0.6rem'; b.innerHTML=`👹 ${escapeHtml(d.name)} <span style="font-size:0.75rem; opacity:0.75;">[${normalizedStatus(d)==='active'?'En curso':'Esperando'}]</span>`; b.onclick=()=>selectQuiz(doc.id,d.name||'',{}); quizListContainer.appendChild(b);});}catch(e){quizListContainer.innerHTML=`<p class="small-text msg-error">Error: ${escapeHtml(e.message)}</p>`;}}
+function redirectToCorrectMode(d,quizId){const m=modeOf(d); localStorage.setItem(PENDING_JOIN_KEY,JSON.stringify({quizId,quizName:d.name||'',mode:m,ts:Date.now()})); location.href=`${targetPage(m)}?quizId=${encodeURIComponent(quizId)}&quizName=${encodeURIComponent(d.name||'')}&join=1`;}
+function selectQuiz(id,name,options={}){myQuizId=id; selectedQuizName.textContent='📝 '+(name||'Coyohoot seleccionado'); renderAvatarPicker(); joinBtn.disabled=false; nicknameMsg.classList.add('hidden'); if(options.forceJoinForm)clearSession(); showOnly(stepNickname);} backToListBtn.onclick=()=>{myQuizId=null; showOnly(stepSelectQuiz); loadQuizList();}; joinBtn.onclick=registerNickname; nicknameInput.addEventListener('keydown',e=>{if(e.key==='Enter')registerNickname();});
+async function registerNickname(){const nick=nicknameInput.value.trim(); if(nick.length<2){showMsg(nicknameMsg,'❌ Escribe un nickname válido.','error');return;} joinBtn.disabled=true; try{const quizSnap=await db.collection('coyohoots').doc(myQuizId).get(); if(!quizSnap.exists)throw new Error('El Coyohoot ya no existe.'); const quizData=quizSnap.data()||{}; if(modeOf(quizData)!==MY_MODE){redirectToCorrectMode(quizData,myQuizId);return;} if(['finished','stopped','archived'].includes(normalizedStatus(quizData))||quizData.isStopped){showMsg(nicknameMsg,'👹 Este Boss Fight ya terminó.','warn'); joinBtn.disabled=false;return;} const existing=await db.collection('coyohoots').doc(myQuizId).collection('participants').where('nickname','==',nick).get(); if(!existing.empty){showMsg(nicknameMsg,'⚠️ Ese nickname ya está en uso.','warn'); joinBtn.disabled=false;return;} const av=selectedAvatar(); const ref=await db.collection('coyohoots').doc(myQuizId).collection('participants').add({nickname:nick,avatar:av.path,avatarId:av.id,avatarPath:av.path,avatarName:av.name,totalScore:0,damageDealt:0,contributionScore:0,bossCorrect:0,bossWrong:0,bossAnswered:0,bossAvgResponseTime:null,bossQuestionSeq:0,joinedAt:firebase.firestore.FieldValue.serverTimestamp(),lastResponseTime:null,sessionId:quizData.sessionId||''}); myNickname=nick; myParticipantId=ref.id; mySessionId=quizData.sessionId||''; myQuestionSeq=0; activeSeq=-1; saveSession(); clearPendingJoin(); waitingNickname.textContent=nick; waitingQuizName.textContent=quizData.name||''; startGameListener(myQuizId);}catch(e){showMsg(nicknameMsg,'❌ Error: '+escapeHtml(e.message),'error'); joinBtn.disabled=false;}}
+function startGameListener(quizId){ if(gameUnsub)gameUnsub(); if(participantUnsub)participantUnsub(); showOnly(stepWaiting); participantUnsub=db.collection('coyohoots').doc(quizId).collection('participants').doc(myParticipantId).onSnapshot(s=>{if(!s.exists)return; const p=s.data()||{}; myStats=p; if(p.sessionId&&p.sessionId!==mySessionId){mySessionId=p.sessionId; saveSession();} const remoteSeq=Number.isFinite(p.bossQuestionSeq)?p.bossQuestionSeq:(p.bossQuestionSeq||0); if(remoteSeq!==myQuestionSeq){myQuestionSeq=remoteSeq; saveSession(); if(quizCache&&normalizedStatus(quizCache)==='active')renderCurrentBossQuestion(quizCache,true);} if(stepQuestion&&!stepQuestion.classList.contains('hidden'))renderHud();}); gameUnsub=db.collection('coyohoots').doc(quizId).onSnapshot(s=>{if(!s.exists)return; handleGameState(s.data()||{});});}
+function handleGameState(d){quizCache=d; const status=normalizedStatus(d); if(modeOf(d)!==MY_MODE){redirectToCorrectMode(d,myQuizId);return;} if(d.sessionId&&d.sessionId!==mySessionId){mySessionId=d.sessionId; saveSession();} if(status==='stopped'||d.isStopped){stopTimer(); showOnly(stepStopped); clearSession();return;} if(status==='finished'||d.bossState==='victory'||d.bossState==='defeat'){stopTimer(); showFinal(d);return;} if(status==='waiting'){stopTimer(); activeSeq=-1; if(d.roundState==='instructions')showOnly(stepInstructions); else showOnly(stepWaiting); return;} if(status==='active'){renderCurrentBossQuestion(d,false);}}
+function renderHud(){ if(!quizCache)return; const bossPct=Math.max(0,Math.round(((quizCache.bossHP||0)/(quizCache.bossMaxHP||1))*100)); const teamPct=Math.max(0,Math.round(((quizCache.teamHP||0)/(quizCache.teamMaxHP||1))*100)); bossBasicHud.innerHTML=`<div class="boss-basic-grid"><div><strong>👹 Boss</strong><div class="mini-bar"><span style="width:${bossPct}%"></span></div></div><div><strong>🛡️ Equipo</strong><div class="mini-bar team"><span style="width:${teamPct}%"></span></div></div></div>`; }
+function renderCurrentBossQuestion(d,force=false){const questions=d.questions||[]; if(!questions.length){showOnly(stepWaiting);return;} const seq=Math.max(0,myQuestionSeq||0); const qIdx=seq%questions.length; const q=questions[qIdx]; if(!q)return; if(!force&&activeSeq===seq&&!stepQuestion.classList.contains('hidden'))return; activeSeq=seq; activeDeadline=Date.now()+((q.timeLimit||30)*1000); renderQuestion(q,qIdx,questions.length,activeDeadline,seq);}
+function shuffledOptions(q){const arr=(q.options||[]).map((text,originalIndex)=>({text,originalIndex})); for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]];} if(arr.length>1&&arr.every((x,i)=>x.originalIndex===i))[arr[0],arr[1]]=[arr[1],arr[0]]; return arr;}
+function renderQuestion(q,qIdx,total,deadline,seq){showOnly(stepQuestion); qNumber.textContent=`Pregunta ${qIdx+1} de ${total} · Ataque ${seq+1}`; questionText.textContent=q.text||''; answerFeedback.classList.add('hidden'); renderHud(); optionsGrid.innerHTML=''; shuffledOptions(q).forEach(opt=>{const b=document.createElement('button'); b.className='option-btn'; b.textContent=opt.text; b.dataset.originalIndex=String(opt.originalIndex); b.onclick=()=>submitAnswer(seq,qIdx,opt.originalIndex,q,deadline,false); optionsGrid.appendChild(b);}); startTimer(deadline,q.timeLimit||30,()=>submitAnswer(seq,qIdx,null,q,deadline,true));}
+function startTimer(deadline,totalSecs,onTimeout){stopTimer(); function tick(){const rem=Math.max(0,Math.ceil((deadline-Date.now())/1000)); timerDisplay.textContent=rem; timerDisplay.style.setProperty('--progress',(rem/(totalSecs||30))*100+'%'); timerDisplay.classList.toggle('urgent',rem<=5); if(rem<=0){stopTimer(); disableOptions(); onTimeout&&onTimeout();}} tick(); timerInterval=setInterval(tick,500);} function stopTimer(){if(timerInterval){clearInterval(timerInterval);timerInterval=null;} timerDisplay.classList.remove('urgent');} function disableOptions(){optionsGrid.querySelectorAll('.option-btn').forEach(b=>b.disabled=true);}
+async function settleBossRound(seq){
+  try{
+    const quizRef=db.collection('coyohoots').doc(myQuizId);
+    const quizSnap=await quizRef.get();
+    if(!quizSnap.exists)return;
+    const quiz=quizSnap.data()||{};
+    if(normalizedStatus(quiz)!=='active'||quiz.isStopped||quiz.bossState!=='running')return;
+    const sessionId=quiz.sessionId||mySessionId||'';
+    const partSnap=sessionId
+      ? await quizRef.collection('participants').where('sessionId','==',sessionId).get()
+      : await quizRef.collection('participants').get();
+    const totalParticipants=Math.max(1,partSnap.size||1);
+    const respSnap=await quizRef.collection('responses').where('round','==',seq).get();
+    const responses=[];
+    respSnap.forEach(doc=>{
+      const r=doc.data()||{};
+      if(r.mode==='boss' && (!sessionId || r.sessionId===sessionId)) responses.push(r);
+    });
+    if(responses.length<totalParticipants)return;
+    const wrongCount=responses.filter(r=>!r.correct).length;
+    const failRatio=wrongCount/totalParticipants;
+    await db.runTransaction(async t=>{
+      const fresh=await t.get(quizRef);
+      if(!fresh.exists)return;
+      const q=fresh.data()||{};
+      if(normalizedStatus(q)!=='active'||q.isStopped||q.bossState!=='running')return;
+      const settled=q.bossSettledRounds||{};
+      if(settled[String(seq)])return;
+      let bossHP=Math.max(0,Number(q.bossHP ?? 100));
+      let teamHP=Math.max(0,Number(q.teamHP ?? 100));
+      let outcome=null;
+      const lastBossRoundResult={round:seq,totalParticipants,wrongCount,failRatio,settledAt:Date.now()};
+      if(failRatio>=0.5){
+        teamHP=Math.max(0,teamHP-5);
+        lastBossRoundResult.effect='team_damage';
+      }else{
+        bossHP=Math.max(0,bossHP-5);
+        lastBossRoundResult.effect='boss_damage';
+      }
+      if(bossHP<=0)outcome='victory';
+      if(teamHP<=0)outcome='defeat';
+      const update={
+        bossHP,
+        bossMaxHP:100,
+        teamHP,
+        teamMaxHP:100,
+        rage:wrongCount,
+        rageMax:totalParticipants,
+        lastBossRoundResult,
+        [`bossSettledRounds.${seq}`]: true,
+        screenMode:'boss',
+        screenUpdatedAt:firebase.firestore.FieldValue.serverTimestamp()
+      };
+      if(outcome){
+        update.status='finished';
+        update.isRunning=false;
+        update.showRanking=true;
+        update.roundState='finished';
+        update.bossState=outcome;
+        update.bossOutcome=outcome;
+        update.finishedAt=firebase.firestore.FieldValue.serverTimestamp();
+      }
+      t.update(quizRef,update);
+    });
+  }catch(e){ console.warn('No se pudo cerrar la ronda Boss', e); }
+}
+async function submitAnswer(seq,qIdx,optIdx,q,deadline,timedOut){
+  if(activeSeq!==seq)return;
+  disableOptions();
+  stopTimer();
+  const now=Date.now();
+  const isCorrect=!timedOut && optIdx===q.correct;
+  const timeLimit=q.timeLimit||30;
+  const elapsed=Math.max(0,(now-(deadline-timeLimit*1000))/1000);
+  try{
+    let result={correct:isCorrect,nextSeq:seq+1,outcome:null};
+    await db.runTransaction(async t=>{
+      const quizRef=db.collection('coyohoots').doc(myQuizId);
+      const quizSnap=await t.get(quizRef);
+      const quiz=quizSnap.data()||{};
+      if(normalizedStatus(quiz)!=='active'||quiz.isStopped)throw new Error('QUESTION_CLOSED');
+      if(quiz.bossState&&quiz.bossState!=='running')throw new Error('BOSS_CLOSED');
+      const partRef=quizRef.collection('participants').doc(myParticipantId);
+      const partSnap=await t.get(partRef);
+      const p=partSnap.data()||{};
+      const expected=p.bossQuestionSeq||0;
+      if(expected!==seq)throw new Error('STALE_QUESTION');
+      const respRef=quizRef.collection('responses').doc(`${myParticipantId}_boss${seq}`);
+      const respSnap=await t.get(respRef);
+      if(respSnap.exists)throw new Error('ALREADY_ANSWERED');
+      const answered=(p.bossAnswered||0)+1;
+      const correct=(p.bossCorrect||0)+(isCorrect?1:0);
+      const wrong=(p.bossWrong||0)+(isCorrect?0:1);
+      const totalPrevAvg=(p.bossAvgResponseTime||0)*(p.bossAnswered||0);
+      const avg=(totalPrevAvg+(elapsed*1000))/answered;
+      const contribution=(p.contributionScore||0)+(isCorrect?10:0);
+      const damageTotal=(p.damageDealt||0)+(isCorrect?10:0);
+      t.update(partRef,{damageDealt:damageTotal,contributionScore:contribution,bossCorrect:correct,bossWrong:wrong,bossAnswered:answered,bossAvgResponseTime:avg,bossQuestionSeq:seq+1,lastBossAnswerAt:now,totalScore:(p.totalScore||0)+(isCorrect?10:0),lastResponseTime:now});
+      t.set(respRef,{participantId:myParticipantId,nickname:myNickname,questionIdx:qIdx,round:seq,answer:optIdx,correct:isCorrect,timedOut:!!timedOut,damage:isCorrect?10:0,responseTime:elapsed,answeredAt:now,mode:'boss',sessionId:quiz.sessionId||mySessionId||''});
+    });
+    optionsGrid.querySelectorAll('.option-btn').forEach(b=>{const original=Number(b.dataset.originalIndex); if(original===q.correct)b.classList.add('correct'); else if(original===optIdx&&!isCorrect)b.classList.add('wrong');});
+    settleBossRound(seq);
+    myQuestionSeq=result.nextSeq;
+    saveSession();
+    const text=result.correct?'✅ Correcto. Tu respuesta cuenta para bajar la vida del boss.':(timedOut?'⌛ Tiempo agotado. Cuenta como fallo del equipo.':'❌ Incorrecto. Cuenta como fallo del equipo.');
+    showMsg(answerFeedback,text,result.correct?'success':'warn');
+    setTimeout(()=>{if(quizCache)renderCurrentBossQuestion(quizCache,true);},700);
+  }catch(e){
+    saveSession();
+    if(e.message==='STALE_QUESTION'||e.message==='ALREADY_ANSWERED'){
+      showMsg(answerFeedback,'🔄 Respuesta ya registrada. Cargando siguiente...','warn');
+      setTimeout(()=>{if(quizCache)renderCurrentBossQuestion(quizCache,true);},600);
+    } else showMsg(answerFeedback,'⏹️ La batalla ya fue cerrada.','warn');
+  }
+}
+function showFinal(d){showOnly(stepFinished); const outcome=d.bossOutcome||d.bossState; finalBadge.textContent=outcome==='victory'?'🎉 Victoria':'💀 Derrota'; finalMsg.textContent=outcome==='victory'?'El equipo derrotó al boss.':'El boss derrotó al equipo.'; const dmg=myStats.damageDealt||0, ans=myStats.bossAnswered||0, cor=myStats.bossCorrect||0, acc=ans?Math.round((cor/ans)*100):0; myContribution.textContent=`Tu contribución: ${dmg} daño · ${cor}/${ans} correctas · ${acc}% precisión`; clearSession();}
+(function init(){const params=new URLSearchParams(location.search); const urlQuizId=params.get('quizId'); const pending=getPendingJoin(); if(!urlQuizId&&pending&&pending.mode===MY_MODE){selectQuiz(pending.quizId,pending.quizName||'',{forceJoinForm:true});return;} if(!urlQuizId&&pending&&pending.mode&&pending.mode!==MY_MODE){location.href=`${targetPage(pending.mode)}?quizId=${encodeURIComponent(pending.quizId)}&quizName=${encodeURIComponent(pending.quizName||'')}&join=1`;return;} if(urlQuizId){const urlQuizName=params.get('quizName')||''; const force=params.get('join')==='1'; if(urlQuizName||force)selectQuiz(urlQuizId,urlQuizName,{forceJoinForm:force}); db.collection('coyohoots').doc(urlQuizId).get().then(s=>{if(!s.exists){showOnly(stepSelectQuiz);loadQuizList();return;} const d=s.data()||{}; if(modeOf(d)!==MY_MODE){redirectToCorrectMode(d,urlQuizId);return;} if(['finished','stopped','archived'].includes(normalizedStatus(d))||d.isStopped){showOnly(stepSelectQuiz);loadQuizList();return;} if(!(urlQuizName||force))selectQuiz(urlQuizId,d.name||'',{}); else selectedQuizName.textContent='📝 '+(d.name||urlQuizName||'Coyohoot seleccionado');}).catch(()=>{if(!(urlQuizName||force)){showOnly(stepSelectQuiz);loadQuizList();}});return;} const saved=getSavedSession(); if(saved&&saved.quizId&&saved.participantId&&saved.mode===MY_MODE){myQuizId=saved.quizId; myNickname=saved.nickname; myParticipantId=saved.participantId; mySessionId=saved.sessionId||''; selectedAvatarId=saved.avatarId||1; myQuestionSeq=saved.bossQuestionSeq||0; startGameListener(myQuizId);return;} showOnly(stepSelectQuiz); loadQuizList();})();
+</script>
+</body>
+</html>

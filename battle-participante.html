@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coyohoot | Battle Royale</title>
+    <link rel="icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="apple-touch-icon" href="logo.jpeg">
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div class="page-container">
+  <div class="top-bar"></div>
+  <div class="content">
+    <div class="logo-container"><img src="logo.jpeg" alt="Coyohoot" class="logo"></div>
+
+    <div id="stepSelectQuiz">
+      <h2>⚔️ Battle Royale</h2>
+      <p class="subtitle"><span class="mode-badge mode-battle">⚔️ Battle Royale</span><br><br>Elige el Coyohoot al que quieres unirte</p>
+      <div id="quizListContainer" class="card"><p class="small-text pulse">Cargando quizzes disponibles...</p></div>
+      <div class="nav-buttons"><a href="index.html" class="btn-outline">🏠 Inicio</a><a href="participante.html" class="btn-outline">↩️ Lista general</a></div>
+    </div>
+
+    <div id="stepNickname" class="hidden">
+      <h2>⚔️ Entra al Battle</h2>
+      <div class="card">
+        <div id="selectedQuizName" style="color:#c4b5fd; font-weight:700; margin-bottom:1rem;"></div>
+        <div class="input-group"><label>🌟 Tu nickname</label><input type="text" id="nicknameInput" placeholder="Ej: CoyoteDuelista" autocomplete="off" maxlength="20"></div>
+        <div class="input-group"><label>🐺 Elige tu avatar</label><div id="avatarPicker" class="avatar-picker"></div></div>
+        <button id="joinBtn" class="btn-primary full-w">Unirme al Battle ⚔️</button>
+        <div id="nicknameMsg" class="message hidden"></div>
+      </div>
+      <div class="nav-buttons"><button id="backToListBtn" class="btn-outline">← Volver</button></div>
+    </div>
+
+    <div id="stepWaiting" class="hidden">
+      <h2>⏳ Sala de espera</h2>
+      <div class="card center">
+        <div style="margin-bottom:0.8rem;"><span class="mode-badge mode-battle">⚔️ Battle Royale</span></div>
+        <p style="color:#94a3b8; font-size:0.9rem;">Listo como</p>
+        <p id="waitingNickname" style="color:#c4b5fd; font-size:1.3rem; font-weight:800; margin:0.3rem 0;"></p>
+        <p class="small-text">Esperando que el admin inicie el torneo.</p>
+        <div class="status-pill waiting pulse mt-1">⏳ En espera</div>
+      </div>
+    </div>
+
+    <div id="stepInstructions" class="hidden">
+      <h2>📖 Reglas Battle Royale</h2>
+      <div class="card">
+        <div class="instructions-panel">
+          <span class="mode-badge mode-battle">⚔️ Battle Royale</span>
+          <ul class="instructions-list battle mt-1">
+            <li>Jugarás duelos <strong>1 vs 1</strong> contra otro participante.</li>
+            <li>Gana el duelo quien responda <strong>correctamente primero</strong>.</li>
+            <li>Si ambos fallan, el duelo continúa con otra pregunta.</li>
+            <li>El perdedor queda eliminado. El ganador avanza.</li>
+            <li>Si hay jugadores impares, uno recibe <strong>bye</strong> y espera la siguiente ronda.</li>
+            <li>Gana el <strong>último participante en pie</strong>.</li>
+          </ul>
+        </div>
+        <div class="instruction-tip">Tip: en los duelos importa acertar antes que tu rival.</div><div class="status-pill waiting pulse mt-2">⏳ Esperando que inicie el torneo...</div>
+      </div>
+    </div>
+
+    <div id="stepDuel" class="hidden">
+      <div class="battle-duel-hud" id="duelHud"></div>
+      <div class="timer-ring-wrap"><div class="timer-display" id="timerDisplay">30</div></div>
+      <div class="card">
+        <p class="question-text" id="questionText">¿Cargando pregunta?</p>
+        <div class="options-grid" id="optionsGrid"></div>
+        <div id="answerFeedback" class="message hidden"></div>
+      </div>
+    </div>
+
+    <div id="stepBye" class="hidden">
+      <h2>⏳ Te toca esperar</h2>
+      <div class="card center">
+        <div class="battle-big-icon">🛡️</div>
+        <h3>Recibiste bye esta ronda</h3>
+        <p class="small-text">No tienes rival ahora. Avanzas y entrarás cuando se arme el siguiente duelo.</p>
+        <div class="status-pill waiting pulse mt-1">Esperando siguiente ronda...</div>
+      </div>
+    </div>
+
+    <div id="stepBetween" class="hidden">
+      <h2>⚔️ Duelo resuelto</h2>
+      <div class="card center">
+        <div id="betweenMsg" class="message"></div>
+        <p class="small-text mt-2 pulse">Esperando la siguiente ronda...</p>
+      </div>
+    </div>
+
+    <div id="stepEliminated" class="hidden">
+      <h2>💀 Eliminado</h2>
+      <div class="card center"><div class="battle-big-icon">💀</div><p class="small-text">Caíste en batalla. Puedes ver el resto desde la pantalla del torneo.</p><div class="nav-buttons mt-2"><a href="index.html" class="btn-outline">🏠 Inicio</a></div></div>
+    </div>
+
+    <div id="stepChampion" class="hidden">
+      <h2>👑 Campeón</h2>
+      <div class="card center"><div class="battle-big-icon">👑</div><h3>¡Eres el último en pie!</h3><p class="small-text">Ganaste el Battle Royale.</p><div class="nav-buttons mt-2"><a href="index.html" class="btn-outline">🏠 Inicio</a></div></div>
+    </div>
+
+    <div id="stepStopped" class="hidden">
+      <h2>⏹️ Battle detenido</h2>
+      <div class="card center"><div class="status-pill finished">El admin detuvo el Coyohoot</div><p class="small-text mt-2">Ya no se aceptan respuestas.</p></div>
+    </div>
+  </div>
+  <div class="top-bar" style="margin-top:1rem;"></div>
+</div>
+
+<script src="firebase.js"></script>
+<script>
+const MY_MODE='battle';
+const SESSION_KEY='coyohoot_session';
+const PENDING_JOIN_KEY='coyohoot_pending_join';
+const AVATAR_CATALOG_ALL=[{id:1,name:'El Vice',path:'Avatares/Avatar1.svg'},{id:2,name:'El Presi',path:'Avatares/Avatar2.svg'},{id:3,name:'La Secre',path:'Avatares/Avatar3.svg'},{id:4,name:'Nachito',path:'Avatares/Avatar4.svg'},{id:5,name:'Avatar 5',path:'Avatares/Avatar5.svg'},{id:6,name:'Avatar 6',path:'Avatares/Avatar6.svg'},{id:7,name:'Avatar 7',path:'Avatares/Avatar7.svg'},{id:8,name:'Avatar 8',path:'Avatares/Avatar8.svg'}];
+let AVATARS=[AVATAR_CATALOG_ALL[0]];
+function avatarFileExists(src){return new Promise(resolve=>{const img=new Image(); img.onload=()=>resolve(true); img.onerror=()=>resolve(false); img.src=src;});}
+async function loadAvailableAvatars(){try{const checked=await Promise.all(AVATAR_CATALOG_ALL.map(async a=>(await avatarFileExists(a.path))?a:null)); AVATARS=checked.filter(Boolean); if(!AVATARS.length)AVATARS=[AVATAR_CATALOG_ALL[0]]; if(!AVATARS.some(a=>Number(a.id)===Number(selectedAvatarId)))selectedAvatarId=AVATARS[0].id; renderAvatarPicker();}catch(e){AVATARS=[AVATAR_CATALOG_ALL[0]]; renderAvatarPicker();}}
+let selectedAvatarId=1,myQuizId=null,myNickname=null,myParticipantId=null,mySessionId=null;
+let gameUnsub=null,participantUnsub=null,timerInterval=null,quizCache=null,participantCache=null,activeDuelKey=null,submitting=false;
+const $=id=>document.getElementById(id);
+const stepSelectQuiz=$('stepSelectQuiz'),stepNickname=$('stepNickname'),stepWaiting=$('stepWaiting'),stepInstructions=$('stepInstructions'),stepDuel=$('stepDuel'),stepBye=$('stepBye'),stepBetween=$('stepBetween'),stepEliminated=$('stepEliminated'),stepChampion=$('stepChampion'),stepStopped=$('stepStopped');
+const quizListContainer=$('quizListContainer'),selectedQuizName=$('selectedQuizName'),nicknameInput=$('nicknameInput'),nicknameMsg=$('nicknameMsg'),avatarPicker=$('avatarPicker'),joinBtn=$('joinBtn'),backToListBtn=$('backToListBtn'),waitingNickname=$('waitingNickname');
+const duelHud=$('duelHud'),timerDisplay=$('timerDisplay'),questionText=$('questionText'),optionsGrid=$('optionsGrid'),answerFeedback=$('answerFeedback'),betweenMsg=$('betweenMsg');
+function escapeHtml(str){return String(str||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function showOnly(el){[stepSelectQuiz,stepNickname,stepWaiting,stepInstructions,stepDuel,stepBye,stepBetween,stepEliminated,stepChampion,stepStopped].forEach(x=>x.classList.add('hidden')); el.classList.remove('hidden');}
+function showMsg(el,msg,type=''){el.innerHTML=msg; el.className='message'+(type?' msg-'+type:''); el.classList.remove('hidden');}
+function normalizedStatus(d){return d.status || (Array.isArray(d.questions)?'waiting':'archived');}
+function modeOf(d){const raw=(d.gameMode||d.mode||d.modo||d.modeId||'').toString().toLowerCase(); if(raw==='battle'||raw==='battle_royale'||raw==='battleroyale'||raw==='royale'||raw==='duelo')return'battle'; if(raw==='caos'||raw==='chaos'||raw==='random')return'caos'; if(raw==='boss'||raw==='bossfight'||raw==='boss_fight'||raw==='jefe')return'boss'; if(raw==='carrera'||raw==='race')return'carrera'; if(raw==='supervivencia'||raw==='survival')return'supervivencia'; return'clasico';}
+function targetPage(m){return m==='caos'?'caos-participante.html':m==='battle'?'battle-participante.html':m==='boss'?'boss-participante.html':m==='carrera'?'carrera.html':m==='supervivencia'?'supervivencia.html':'clasico.html';}
+function isJoinableQuiz(d){const st=normalizedStatus(d); return st==='waiting'||st==='active';}
+function sortByCreatedDesc(a,b){const av=a.data.createdAt&&a.data.createdAt.toMillis?a.data.createdAt.toMillis():0; const bv=b.data.createdAt&&b.data.createdAt.toMillis?b.data.createdAt.toMillis():0; return bv-av || (a.data.name||'').localeCompare(b.data.name||'');}
+function selectedAvatar(){return AVATARS.find(a=>a.id===selectedAvatarId)||AVATARS[0];}
+function renderAvatarPicker(){avatarPicker.innerHTML=''; const list=AVATARS.length?AVATARS:[AVATAR_CATALOG_ALL[0]]; list.forEach(a=>{const b=document.createElement('button'); b.type='button'; b.className='avatar-option avatar-image-option'+(a.id===selectedAvatarId?' selected':''); b.innerHTML=`<span class="avatar-card-shine"></span><span class="avatar-image-ring"><img src="${a.path}" alt="${a.name}" loading="lazy"></span><span class="avatar-name">${a.name}</span><span class="avatar-check">✓</span>`; b.onclick=()=>{selectedAvatarId=a.id; renderAvatarPicker();}; avatarPicker.appendChild(b);});}
+loadAvailableAvatars();
+function saveSession(){localStorage.setItem(SESSION_KEY,JSON.stringify({quizId:myQuizId,nickname:myNickname,participantId:myParticipantId,sessionId:mySessionId,mode:MY_MODE,avatarId:selectedAvatarId}));}
+function clearSession(){localStorage.removeItem(SESSION_KEY);}
+function getSavedSession(){try{const r=localStorage.getItem(SESSION_KEY); return r?JSON.parse(r):null;}catch(e){return null;}}
+function getPendingJoin(){try{const r=localStorage.getItem(PENDING_JOIN_KEY); const p=r?JSON.parse(r):null; if(!p||!p.quizId)return null; if(Date.now()-(p.ts||0)>10*60*1000){localStorage.removeItem(PENDING_JOIN_KEY); return null;} return p;}catch(e){return null;}}
+function clearPendingJoin(){localStorage.removeItem(PENDING_JOIN_KEY);}
+async function loadQuizList(){quizListContainer.innerHTML='<p class="small-text pulse">Cargando...</p>'; try{const snap=await db.collection('coyohoots').get(); const qs=[]; snap.forEach(doc=>{const d=doc.data()||{}; if(isJoinableQuiz(d)&&modeOf(d)===MY_MODE) qs.push({doc,data:d});}); qs.sort(sortByCreatedDesc); quizListContainer.innerHTML=''; if(!qs.length){quizListContainer.innerHTML='<p class="small-text">😔 No hay Coyohoots Battle disponibles.</p>'; return;} qs.forEach(({doc,data:d})=>{const b=document.createElement('button'); b.className='btn-primary full-w'; b.style.marginBottom='0.6rem'; b.innerHTML=`⚔️ ${escapeHtml(d.name)} <span style="font-size:0.75rem; opacity:0.75;">[${normalizedStatus(d)==='active'?'En curso':'Esperando'}]</span>`; b.onclick=()=>selectQuiz(doc.id,d.name||'',{forceJoinForm:false}); quizListContainer.appendChild(b);});}catch(e){quizListContainer.innerHTML=`<p class="small-text msg-error">Error: ${escapeHtml(e.message)}</p>`;}}
+function redirectToCorrectMode(d,quizId){const m=modeOf(d); localStorage.setItem(PENDING_JOIN_KEY,JSON.stringify({quizId,quizName:d.name||'',mode:m,ts:Date.now()})); location.href=`${targetPage(m)}?quizId=${encodeURIComponent(quizId)}&quizName=${encodeURIComponent(d.name||'')}&join=1`;}
+function selectQuiz(id,name,options={}){myQuizId=id; selectedQuizName.textContent='📝 '+(name||'Coyohoot seleccionado'); renderAvatarPicker(); joinBtn.disabled=false; nicknameMsg.classList.add('hidden'); if(options.forceJoinForm) clearSession(); showOnly(stepNickname);}
+backToListBtn.onclick=()=>{myQuizId=null; showOnly(stepSelectQuiz); loadQuizList();};
+joinBtn.onclick=registerNickname; nicknameInput.addEventListener('keydown',e=>{if(e.key==='Enter')registerNickname();});
+async function registerNickname(){const nick=nicknameInput.value.trim(); if(nick.length<2){showMsg(nicknameMsg,'❌ Escribe un nickname válido.','error');return;} joinBtn.disabled=true; try{const quizSnap=await db.collection('coyohoots').doc(myQuizId).get(); if(!quizSnap.exists) throw new Error('El Coyohoot ya no existe.'); const quizData=quizSnap.data()||{}; if(modeOf(quizData)!==MY_MODE){redirectToCorrectMode(quizData,myQuizId);return;} if(['finished','stopped','archived'].includes(normalizedStatus(quizData))||quizData.isStopped){showMsg(nicknameMsg,'⚔️ Este Battle ya terminó.','warn'); joinBtn.disabled=false; return;} const existing=await db.collection('coyohoots').doc(myQuizId).collection('participants').where('nickname','==',nick).get(); if(!existing.empty){showMsg(nicknameMsg,'⚠️ Ese nickname ya está en uso.','warn'); joinBtn.disabled=false; return;} const av=selectedAvatar(); const ref=await db.collection('coyohoots').doc(myQuizId).collection('participants').add({nickname:nick,avatar:av.path,avatarId:av.id,avatarPath:av.path,avatarName:av.name,totalScore:0,battleEliminated:false,battleChampion:false,battleWins:0,battleLosses:0,byeCount:0,battleWaiting:false,currentDuelId:null,battleAnswered:0,battleCorrect:0,battleWrong:0,battleAvgResponseTime:null,joinedAt:firebase.firestore.FieldValue.serverTimestamp(),sessionId:quizData.sessionId||''}); myNickname=nick; myParticipantId=ref.id; mySessionId=quizData.sessionId||''; saveSession(); clearPendingJoin(); waitingNickname.textContent=nick; startGameListener(myQuizId);}catch(e){showMsg(nicknameMsg,'❌ Error: '+escapeHtml(e.message),'error'); joinBtn.disabled=false;}}
+function startGameListener(quizId){ if(gameUnsub)gameUnsub(); if(participantUnsub)participantUnsub(); showOnly(stepWaiting); participantUnsub=db.collection('coyohoots').doc(quizId).collection('participants').doc(myParticipantId).onSnapshot(s=>{ if(!s.exists)return; participantCache=s.data()||{}; if(participantCache.sessionId && participantCache.sessionId!==mySessionId){mySessionId=participantCache.sessionId; saveSession();} renderState(); }); gameUnsub=db.collection('coyohoots').doc(quizId).onSnapshot(s=>{if(!s.exists)return; quizCache=s.data()||{}; renderState();}); }
+function renderState(){ if(!quizCache||!participantCache)return; const d=quizCache; const p=participantCache; const status=normalizedStatus(d); if(modeOf(d)!==MY_MODE){redirectToCorrectMode(d,myQuizId);return;} if(status==='stopped'||d.isStopped){stopTimer(); showOnly(stepStopped); clearSession(); return;} if(p.battleChampion || d.battleChampionId===myParticipantId){stopTimer(); showOnly(stepChampion); return;} if(p.battleEliminated){stopTimer(); showOnly(stepEliminated); return;} if(status==='finished'||d.battleState==='finished'){stopTimer(); if(d.battleChampionId===myParticipantId)showOnly(stepChampion); else showOnly(stepEliminated); return;} if(status==='waiting'){stopTimer(); activeDuelKey=null; if(d.roundState==='instructions')showOnly(stepInstructions); else showOnly(stepWaiting); return;} const duel=findMyDuel(d); if(duel){ if(duel.state==='done'){stopTimer(); showMsg(betweenMsg,duel.winnerId===myParticipantId?'✅ Ganaste tu duelo. Espera la siguiente ronda.':'💀 Perdiste el duelo.','success'); showOnly(stepBetween); return;} renderDuel(d,duel); return; } if((d.waitingPlayer&&d.waitingPlayer.id===myParticipantId)||p.battleWaiting){stopTimer(); showOnly(stepBye); return;} stopTimer(); showOnly(stepWaiting); }
+function findMyDuel(d){return (d.currentPairings||[]).find(x=>x.state==='active'&&(x.playerA===myParticipantId||x.playerB===myParticipantId));}
+function opponentOf(duel){return duel.playerA===myParticipantId?{id:duel.playerB,name:duel.playerBName,avatar:duel.playerBAvatar}:{id:duel.playerA,name:duel.playerAName,avatar:duel.playerAAvatar};}
+function renderDuel(d,duel){const questions=d.questions||[]; if(!questions.length){showOnly(stepWaiting);return;} const qIdx=(Number(duel.questionIndex||0)+Number(duel.duelQuestionSeq||0))%questions.length; const q=questions[qIdx]; const key=`${duel.id}_${duel.duelQuestionSeq||0}`; if(activeDuelKey===key && !stepDuel.classList.contains('hidden'))return; activeDuelKey=key; submitting=false; const opp=opponentOf(duel); duelHud.innerHTML=`<div class="battle-vs-card"><div><strong>Tú</strong><span>${escapeHtml(myNickname||'')}</span></div><b>VS</b><div><strong>Rival</strong><span>${escapeHtml(opp.name||'')}</span></div></div><div class="status-pill active">Ronda ${d.battleRound||1} · Duelo</div>`; questionText.textContent=q.text||''; answerFeedback.classList.add('hidden'); optionsGrid.innerHTML=''; shuffledOptions(q).forEach(opt=>{const b=document.createElement('button'); b.className='option-btn'; b.textContent=opt.text; b.onclick=()=>submitAnswer(duel.id,duel.duelQuestionSeq||0,opt.originalIndex,q); optionsGrid.appendChild(b);}); showOnly(stepDuel); startTimer(q.timeLimit||30,()=>submitAnswer(duel.id,duel.duelQuestionSeq||0,null,q,true));}
+function shuffledOptions(q){const arr=(q.options||[]).map((text,originalIndex)=>({text,originalIndex})); for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]];} if(arr.length>1&&arr.every((x,i)=>x.originalIndex===i))[arr[0],arr[1]]=[arr[1],arr[0]]; return arr;}
+function startTimer(sec,onEnd){stopTimer(); let left=sec; timerDisplay.textContent=left; timerInterval=setInterval(()=>{left--; timerDisplay.textContent=Math.max(0,left); if(left<=0){stopTimer(); onEnd&&onEnd();}},1000);}
+function stopTimer(){if(timerInterval){clearInterval(timerInterval); timerInterval=null;}}
+function battlePairKey(a,b){return [a,b].sort().join('__');}
+function makePairings(players,history=[],round=1){const arr=[...players]; let waitingPlayer=null; if(arr.length%2===1){arr.sort((a,b)=>(a.byeCount||0)-(b.byeCount||0)||(a.battleWins||0)-(b.battleWins||0)||Math.random()-0.5); waitingPlayer=arr.shift();} for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]];} const used=new Set((history||[]).map(h=>h.key||battlePairKey(h.playerA,h.playerB))); const pairings=[]; while(arr.length>=2){const a=arr.shift(); let pick=0; for(let i=0;i<arr.length;i++){if(!used.has(battlePairKey(a.id,arr[i].id))){pick=i;break;}} const b=arr.splice(pick,1)[0]; pairings.push({id:`r${round}_${a.id.slice(0,5)}_${b.id.slice(0,5)}_${Math.random().toString(36).slice(2,6)}`,playerA:a.id,playerAName:a.nickname||'Jugador A',playerAAvatar:a.avatarPath||a.avatar||'Avatares/Avatar1.svg',playerB:b.id,playerBName:b.nickname||'Jugador B',playerBAvatar:b.avatarPath||b.avatar||'Avatares/Avatar1.svg',questionIndex:Math.floor(Math.random()*999999),duelQuestionSeq:0,state:'active',winnerId:null,loserId:null,aAnswered:null,bAnswered:null,startedAt:Date.now()});} return {pairings,waitingPlayer};}
+async function submitAnswer(duelId,duelSeq,answerIndex,q,timeout=false){ if(submitting)return; submitting=true; stopTimer(); optionsGrid.querySelectorAll('button').forEach(b=>b.disabled=true); const correct=answerIndex!==null && Number(answerIndex)===Number(q.correct); try{ const result=await db.runTransaction(async tx=>{ const quizRef=db.collection('coyohoots').doc(myQuizId); const quizSnap=await tx.get(quizRef); if(!quizSnap.exists)throw new Error('Quiz no existe'); const d=quizSnap.data()||{}; if(normalizedStatus(d)!=='active'||d.battleState!=='running')throw new Error('El Battle no está activo'); const pairings=[...(d.currentPairings||[])]; const idx=pairings.findIndex(x=>x.id===duelId&&x.state==='active'&&(x.playerA===myParticipantId||x.playerB===myParticipantId)); if(idx<0)return {kind:'late'}; const duel={...pairings[idx]}; if(Number(duel.duelQuestionSeq||0)!==Number(duelSeq))return {kind:'late'}; const isA=duel.playerA===myParticipantId; const opponentId=isA?duel.playerB:duel.playerA; const meRef=quizRef.collection('participants').doc(myParticipantId); const oppRef=quizRef.collection('participants').doc(opponentId); const meSnap=await tx.get(meRef); const oppSnap=await tx.get(oppRef); let nextWinnerRefs=[]; let nextWinnerSnaps=[]; let nextWinnerIds=[]; let willFinishRound=false; let newPairings=null; let nextWaiting=null; let champion=null; let history=[...(d.battleHistory||[])]; if(correct){duel.state='done'; duel.winnerId=myParticipantId; duel.loserId=opponentId; duel.finishedAt=Date.now(); pairings[idx]=duel; history.push({round:d.battleRound||1,playerA:duel.playerA,playerB:duel.playerB,winnerId:myParticipantId,loserId:opponentId,key:battlePairKey(duel.playerA,duel.playerB)}); willFinishRound=pairings.every(x=>x.state==='done'); if(willFinishRound){ nextWinnerIds=pairings.map(x=>x.winnerId).filter(Boolean); if(d.waitingPlayer&&d.waitingPlayer.id)nextWinnerIds.push(d.waitingPlayer.id); nextWinnerRefs=nextWinnerIds.map(id=>quizRef.collection('participants').doc(id)); nextWinnerSnaps=[]; for(const ref of nextWinnerRefs) nextWinnerSnaps.push(await tx.get(ref)); if(nextWinnerIds.length<=1){champion=nextWinnerIds[0]||myParticipantId;} else { const players=nextWinnerSnaps.map(s=>({id:s.id,...(s.data()||{})})).filter(p=>!p.battleEliminated); const made=makePairings(players,history,(d.battleRound||1)+1); newPairings=made.pairings; nextWaiting=made.waitingPlayer||null; } } } else { if(isA)duel.aAnswered=false; else duel.bAnswered=false; if(duel.aAnswered===false && duel.bAnswered===false){duel.aAnswered=null; duel.bAnswered=null; duel.duelQuestionSeq=(duel.duelQuestionSeq||0)+1; duel.questionIndex=(duel.questionIndex||0)+1;} pairings[idx]=duel; }
+            const prev=meSnap.data()||{}; const answered=(prev.battleAnswered||0)+1; const prevAvg=prev.battleAvgResponseTime||0; const newAvg=prev.battleAnswered?Math.round(((prevAvg*(prev.battleAnswered||0))+0)/answered):0; tx.set(meRef,{battleAnswered:firebase.firestore.FieldValue.increment(1),battleCorrect:firebase.firestore.FieldValue.increment(correct?1:0),battleWrong:firebase.firestore.FieldValue.increment(correct?0:1),battleAvgResponseTime:newAvg,battleWaiting:false,currentDuelId:null}, {merge:true});
+            if(correct){ tx.set(meRef,{battleWins:firebase.firestore.FieldValue.increment(1)}, {merge:true}); tx.set(oppRef,{battleEliminated:true,battleLosses:firebase.firestore.FieldValue.increment(1),battleWaiting:false,currentDuelId:null,battleFinishedPlace:null}, {merge:true}); }
+            if(champion){ const champRef=quizRef.collection('participants').doc(champion); tx.set(champRef,{battleChampion:true,battleWaiting:false,currentDuelId:null,battleFinishedPlace:1},{merge:true}); const champSnap = champion===myParticipantId ? meSnap : (nextWinnerSnaps.find(s=>s.id===champion) || meSnap); const champName = (champSnap.data()||{}).nickname || ''; tx.update(quizRef,{battleState:'finished',status:'finished',isRunning:false,showRanking:true,roundState:'finished',screenMode:'battle',battleChampionId:champion,battleChampionName:champName,currentPairings:pairings,waitingPlayer:null,battleHistory:history,finishedAt:firebase.firestore.FieldValue.serverTimestamp(),screenUpdatedAt:firebase.firestore.FieldValue.serverTimestamp()}); return {kind:'champion',correct}; }
+            if(willFinishRound && newPairings){ tx.update(quizRef,{currentPairings:newPairings,waitingPlayer:nextWaiting,battleRound:(d.battleRound||1)+1,battleHistory:history,screenMode:'battle',screenUpdatedAt:firebase.firestore.FieldValue.serverTimestamp()}); const affected=new Set(); newPairings.forEach(du=>{affected.add(du.playerA); affected.add(du.playerB);}); nextWinnerRefs.forEach((ref,i)=>{const id=nextWinnerIds[i]; tx.set(ref,{battleWaiting:!!(nextWaiting&&nextWaiting.id===id),currentDuelId:null,...((nextWaiting&&nextWaiting.id===id)?{byeCount:firebase.firestore.FieldValue.increment(1)}:{})},{merge:true});}); return {kind:'roundWin',correct}; }
+            tx.update(quizRef,{currentPairings:pairings,battleHistory:history,screenUpdatedAt:firebase.firestore.FieldValue.serverTimestamp()}); return {kind:correct?'win':'wrong',correct}; });
+        if(result.kind==='win'||result.kind==='roundWin'||result.kind==='champion'){showMsg(answerFeedback,'✅ ¡Correcta! Ganaste el duelo.','success');} else if(result.kind==='wrong'){showMsg(answerFeedback,timeout?'⏰ Tiempo agotado. Si ambos fallan, viene otra pregunta.':'❌ Incorrecta. Si ambos fallan, viene otra pregunta.','error');} else {showMsg(answerFeedback,'⏳ El duelo ya cambió.','warn');}
+    }catch(e){showMsg(answerFeedback,'❌ Error: '+escapeHtml(e.message),'error'); submitting=false; optionsGrid.querySelectorAll('button').forEach(b=>b.disabled=false);} }
+async function tryResume(){ const params=new URLSearchParams(location.search); const qid=params.get('quizId'); const qname=params.get('quizName')||''; const join=params.get('join')==='1'; const pending=getPendingJoin(); const saved=getSavedSession(); if(saved&&saved.quizId&&saved.mode===MY_MODE&&!join){myQuizId=saved.quizId; myParticipantId=saved.participantId; myNickname=saved.nickname; mySessionId=saved.sessionId||''; selectedAvatarId=saved.avatarId||1; waitingNickname.textContent=myNickname||''; startGameListener(myQuizId); return;} if(qid){selectQuiz(qid,qname,{forceJoinForm:join}); return;} if(pending&&pending.mode===MY_MODE){selectQuiz(pending.quizId,pending.quizName||'',{forceJoinForm:true}); return;} loadQuizList(); }
+tryResume();
+</script>
+</body>
+</html>

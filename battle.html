@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coyohoot | Battle Royale</title>
+    <link rel="icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="apple-touch-icon" href="logo.jpeg">
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+</head>
+<body class="battle-screen-body">
+  <div class="battle-screen-shell">
+    <header class="battle-stage-header">
+      <div class="battle-brand">
+        <div class="battle-logo"><img src="logo.jpeg" alt="Coyohoot"></div>
+        <div>
+          <span class="mode-badge mode-battle">⚔️ Battle Royale</span>
+          <h1 id="battleTitle">Cargando torneo...</h1>
+          <p id="battleSubtitle">Duelos en vivo</p>
+        </div>
+      </div>
+      <div id="battleStatePill" class="status-pill waiting">Conectando...</div>
+    </header>
+
+    <main class="battle-stage-main">
+      <section class="battle-card battle-bracket-card">
+        <h2>⚔️ Duelos actuales</h2>
+        <div id="pairingsGrid" class="battle-pairings-grid"></div>
+      </section>
+      <aside class="battle-card">
+        <h2>🏆 Jugadores vivos</h2>
+        <div id="aliveGrid" class="battle-alive-grid"></div>
+        <div id="championBox" class="battle-champion-box hidden"></div>
+      </aside>
+    </main>
+
+    <section class="battle-card battle-instructions-card" id="instructionsCard">
+      <div class="instructions-panel">
+        <div class="instructions-hero-head"><div class="instructions-hero-icon">⚔️</div><div><span class="mode-badge mode-battle">⚔️ Battle Royale</span><h2>Instrucciones</h2><p class="instructions-subtitle">Duelos rápidos hasta que quede un campeón.</p></div></div>
+      <ul class="instructions-list battle">
+        <li>Duelos <strong>1 vs 1</strong> aleatorios.</li>
+        <li>Gana quien responda <strong>correctamente primero</strong>.</li>
+        <li>Si ambos fallan, el duelo continúa con otra pregunta.</li>
+        <li>Si hay número impar, un jugador recibe <strong>bye</strong> y espera la siguiente ronda.</li>
+        <li>El último participante en pie gana.</li>
+      </ul>
+        <div class="instruction-tip">Tip: si te toca bye, espera tu siguiente rival.</div>
+      </div>
+    </section>
+  </div>
+
+<script src="firebase.js"></script>
+<script>
+const params = new URLSearchParams(location.search);
+const quizId = params.get('quizId');
+const battleTitle = document.getElementById('battleTitle');
+const battleSubtitle = document.getElementById('battleSubtitle');
+const battleStatePill = document.getElementById('battleStatePill');
+const pairingsGrid = document.getElementById('pairingsGrid');
+const aliveGrid = document.getElementById('aliveGrid');
+const championBox = document.getElementById('championBox');
+const instructionsCard = document.getElementById('instructionsCard');
+let quizData = null, participants = [];
+function escapeHtml(str){return String(str||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function normalizedStatus(d){return d.status || (Array.isArray(d.questions)?'waiting':'archived');}
+function pct(v,max){return Math.max(0,Math.min(100,Math.round((v/(max||1))*100)));}
+function avatar(pd){const src=pd.avatarPath||pd.avatar||'Avatares/Avatar1.svg'; return `<img src="${escapeHtml(src)}" alt="" onerror="this.src='Avatares/Avatar1.svg';this.onerror=null;">`;}
+function modeOf(d){const raw=(d.gameMode||d.mode||d.modo||'').toString().toLowerCase(); return raw==='battle'||raw==='battle_royale'||raw==='battleroyale'||raw==='royale'||raw==='duelo'?'battle':raw;}
+if(!quizId){battleTitle.textContent='Falta quizId';}
+else{
+  db.collection('coyohoots').doc(quizId).onSnapshot(s=>{ if(!s.exists){battleTitle.textContent='Torneo no encontrado'; return;} quizData=s.data()||{}; render(); });
+  db.collection('coyohoots').doc(quizId).collection('participants').onSnapshot(s=>{ participants=[]; s.forEach(d=>participants.push({id:d.id,...d.data()})); render(); });
+}
+function render(){ if(!quizData)return; battleTitle.textContent=quizData.name||'Battle Royale'; const status=normalizedStatus(quizData); const state=quizData.battleState||status; const round=quizData.battleRound||0; battleSubtitle.textContent = state==='running' ? `Ronda ${round} · ${participants.filter(p=>!p.battleEliminated).length} en pie` : 'Duelos 1 vs 1';
+  if(status==='stopped'){battleStatePill.className='status-pill finished'; battleStatePill.textContent='⏹️ Detenido';}
+  else if(state==='finished'||status==='finished'){battleStatePill.className='status-pill finished'; battleStatePill.textContent='👑 Finalizado';}
+  else if(quizData.roundState==='instructions'){battleStatePill.className='status-pill waiting pulse'; battleStatePill.textContent='📖 Instrucciones';}
+  else if(state==='running'){battleStatePill.className='status-pill active'; battleStatePill.textContent='⚔️ En vivo';}
+  else {battleStatePill.className='status-pill waiting pulse'; battleStatePill.textContent='⏳ Esperando';}
+  instructionsCard.classList.toggle('hidden', !(quizData.roundState==='instructions' || status==='waiting'));
+  renderPairings(); renderAlive(); renderChampion(); }
+function renderPairings(){ const pairings=quizData.currentPairings||[]; pairingsGrid.innerHTML=''; if(!pairings.length){ pairingsGrid.innerHTML='<p class="small-text">Aún no hay duelos activos.</p>'; return; } pairings.forEach(duel=>{ const done=duel.state==='done'; const card=document.createElement('div'); card.className='battle-duel-card'+(done?' done':''); const a=participants.find(p=>p.id===duel.playerA)||{nickname:duel.playerAName,avatarPath:duel.playerAAvatar}; const b=participants.find(p=>p.id===duel.playerB)||{nickname:duel.playerBName,avatarPath:duel.playerBAvatar}; const aWin=duel.winnerId===duel.playerA, bWin=duel.winnerId===duel.playerB; card.innerHTML=`
+      <div class="battle-duel-player ${aWin?'winner':''} ${duel.loserId===duel.playerA?'loser':''}">${avatar(a)}<strong>${escapeHtml(a.nickname||duel.playerAName||'Jugador A')}</strong><span>${aWin?'✅ Ganó':(duel.aAnswered===false?'❌ Falló':'Listo')}</span></div>
+      <div class="battle-duel-vs">VS<br><small>${done?'Resuelto':'Pregunta '+(((duel.duelQuestionSeq||0)+1))}</small></div>
+      <div class="battle-duel-player ${bWin?'winner':''} ${duel.loserId===duel.playerB?'loser':''}">${avatar(b)}<strong>${escapeHtml(b.nickname||duel.playerBName||'Jugador B')}</strong><span>${bWin?'✅ Ganó':(duel.bAnswered===false?'❌ Falló':'Listo')}</span></div>`; pairingsGrid.appendChild(card); });
+  if(quizData.waitingPlayer){ const w=participants.find(p=>p.id===quizData.waitingPlayer.id)||quizData.waitingPlayer; const bye=document.createElement('div'); bye.className='battle-duel-card bye'; bye.innerHTML=`<div class="battle-bye-box">🛡️ ${avatar(w)} <strong>${escapeHtml(w.nickname||quizData.waitingPlayer.nickname||'Jugador')}</strong><span>BYE · espera esta ronda</span></div>`; pairingsGrid.appendChild(bye); } }
+function renderAlive(){ const arr=[...participants].sort((a,b)=>(a.battleEliminated?1:0)-(b.battleEliminated?1:0)||(b.battleWins||0)-(a.battleWins||0)||(a.nickname||'').localeCompare(b.nickname||'')); aliveGrid.innerHTML=''; if(!arr.length){aliveGrid.innerHTML='<p class="small-text">Esperando participantes...</p>'; return;} arr.forEach(p=>{ const div=document.createElement('div'); div.className='battle-alive-card'+(p.battleEliminated?' eliminated':'')+(p.battleChampion?' champion':''); div.innerHTML=`${avatar(p)}<div><strong>${escapeHtml(p.nickname||'Jugador')}</strong><span>${p.battleChampion?'👑 Campeón':(p.battleEliminated?'💀 Eliminado':(p.battleWaiting?'🛡️ Bye':'⚔️ Vivo'))} · ${p.battleWins||0}W</span></div>`; aliveGrid.appendChild(div); }); }
+function renderChampion(){ const champ=participants.find(p=>p.id===quizData.battleChampionId)||participants.find(p=>p.battleChampion); if(champ){championBox.classList.remove('hidden'); championBox.innerHTML=`<div class="battle-big-icon">👑</div><h2>Campeón</h2>${avatar(champ)}<strong>${escapeHtml(champ.nickname||quizData.battleChampionName||'Ganador')}</strong>`;} else championBox.classList.add('hidden'); }
+</script>
+</body>
+</html>

@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coyohoot | Modo Clásico</title>
+    <link rel="icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="apple-touch-icon" href="logo.jpeg">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -234,19 +237,46 @@ function showMsg(el, text, type='') {
     el.classList.remove('hidden');
 }
 
-// ── Catálogo de avatares tomado de la carpeta Avatares ──
-const AVATAR_CATALOG = [
+// ── Catálogo base. La UI solo muestra los archivos SVG que existen realmente en /Avatares ──
+const AVATAR_CATALOG_ALL = [
     { id: 1, name: 'El Vice',  path: 'Avatares/Avatar1.svg' },
     { id: 2, name: 'El Presi', path: 'Avatares/Avatar2.svg' },
     { id: 3, name: 'La Secre', path: 'Avatares/Avatar3.svg' },
-    { id: 4, name: 'Nacho',    path: 'Avatares/Avatar4.svg' },
-    { id: 5, name: 'Coyote',   path: 'Avatares/Avatar5.svg' },
-    { id: 6, name: 'Hacker',   path: 'Avatares/Avatar6.svg' },
-    { id: 7, name: 'Ninja',    path: 'Avatares/Avatar7.svg' },
-    { id: 8, name: 'Astro',    path: 'Avatares/Avatar8.svg' }
+    { id: 4, name: 'Nachito',  path: 'Avatares/Avatar4.svg' },
+    { id: 5, name: 'Avatar 5', path: 'Avatares/Avatar5.svg' },
+    { id: 6, name: 'Avatar 6', path: 'Avatares/Avatar6.svg' },
+    { id: 7, name: 'Avatar 7', path: 'Avatares/Avatar7.svg' },
+    { id: 8, name: 'Avatar 8', path: 'Avatares/Avatar8.svg' }
 ];
+let AVATAR_CATALOG = [AVATAR_CATALOG_ALL[0]];
+function avatarFileExists(src) {
+    return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = src;
+    });
+}
+async function loadAvailableAvatars() {
+    try {
+        const checked = await Promise.all(AVATAR_CATALOG_ALL.map(async av => (await avatarFileExists(av.path)) ? av : null));
+        AVATAR_CATALOG = checked.filter(Boolean);
+        if (!AVATAR_CATALOG.length) AVATAR_CATALOG = [AVATAR_CATALOG_ALL[0]];
+        if (!AVATAR_CATALOG.some(a => Number(a.id) === Number(myAvatarId))) {
+            const first = AVATAR_CATALOG[0];
+            myAvatarId = first.id;
+            myAvatarPath = first.path;
+            myAvatarName = first.name;
+            myAvatar = first.path;
+        }
+        renderAvatarPicker();
+    } catch (e) {
+        AVATAR_CATALOG = [AVATAR_CATALOG_ALL[0]];
+        renderAvatarPicker();
+    }
+}
 function getAvatarById(id) {
-    return AVATAR_CATALOG.find(a => a.id === Number(id)) || AVATAR_CATALOG[0];
+    return AVATAR_CATALOG.find(a => a.id === Number(id)) || AVATAR_CATALOG_ALL.find(a => a.id === Number(id)) || AVATAR_CATALOG[0] || AVATAR_CATALOG_ALL[0];
 }
 function selectedAvatar() {
     return getAvatarById(myAvatarId || 1);
@@ -274,11 +304,16 @@ function avatarMediaHtml(pd, className) {
 function renderAvatarPicker() {
     if (!avatarPicker) return;
     avatarPicker.innerHTML = '';
-    AVATAR_CATALOG.forEach(av => {
+    const list = AVATAR_CATALOG.length ? AVATAR_CATALOG : [AVATAR_CATALOG_ALL[0]];
+    list.forEach(av => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'avatar-option avatar-image-option' + (Number(av.id) === Number(myAvatarId) ? ' selected' : '');
-        btn.innerHTML = `<img src=\"${escapeHtml(av.path)}\" alt=\"${escapeHtml(av.name)}\" loading=\"lazy\" onerror=\"this.closest(\'.avatar-option\').style.display=\'none\'\"><span>${escapeHtml(av.name)}</span>`;
+        btn.innerHTML = `
+            <span class="avatar-card-shine"></span>
+            <span class="avatar-image-ring"><img src="${escapeHtml(av.path)}" alt="${escapeHtml(av.name)}" loading="lazy"></span>
+            <span class="avatar-name">${escapeHtml(av.name)}</span>
+            <span class="avatar-check">✓</span>`;
         btn.setAttribute('aria-label', 'Avatar ' + av.name);
         btn.onclick = () => {
             myAvatarId = av.id;
@@ -290,6 +325,7 @@ function renderAvatarPicker() {
         avatarPicker.appendChild(btn);
     });
 }
+loadAvailableAvatars();
 function playerNameHtml(pd, isMe=false) {
     const nick = escapeHtml(pd.nickname || '?');
     return `<span class=\"player-name-cell\">${avatarMediaHtml(pd, 'avatar-img-mini')}<span>${nick}${isMe ? ' 👈' : ''}</span></span>`;
@@ -313,12 +349,21 @@ const MY_MODE = 'clasico';
 
 // ── Helpers reutilizables de instrucciones ──
 function getModeLabel(mode) {
-    return mode === 'supervivencia' ? 'Supervivencia' : 'Clásico';
+    return mode === 'supervivencia' ? 'Supervivencia' : (mode === 'carrera' ? 'Carrera' : 'Clásico');
 }
 function getModeEmoji(mode) {
-    return mode === 'supervivencia' ? '❤️' : '🎯';
+    return mode === 'supervivencia' ? '❤️' : (mode === 'carrera' ? '🏁' : '🎯');
 }
 function getModeInstructions(mode) {
+    if (mode === 'carrera') {
+        return [
+            'La carrera tiene <strong>10 niveles</strong> hasta la meta.',
+            'Cada respuesta correcta avanza 1 nivel; una incorrecta no retrocede.',
+            'Las preguntas se repiten hasta definir el top 3.',
+            'Al llegar a la meta dejas de recibir preguntas.',
+            'Cada 3 aciertos seguidos puede tocar un power up.'
+        ];
+    }
     if (mode === 'supervivencia') {
         return [
             'Empiezas con <strong>3 vidas</strong>. Cada vida cuenta.',
@@ -340,22 +385,52 @@ function getModeInstructions(mode) {
 }
 function renderInstructionsInto(container, mode) {
     const items = getModeInstructions(mode);
-    const cls   = mode === 'supervivencia' ? 'instructions-list survival' : 'instructions-list';
+    const normalizedMode = mode || 'clasico';
+    const title = `Reglas de ${getModeLabel(normalizedMode)}`;
+    const subtitles = {
+        clasico: 'Responde rápido, suma puntos y sube en el ranking.',
+        supervivencia: 'Cuida tus vidas: cada error puede costarte la partida.',
+        carrera: 'Avanza hasta la meta contestando bien y usando tus rachas.'
+    };
+    const tips = {
+        clasico: 'Tip: velocidad + precisión = más puntos.',
+        supervivencia: 'Tip: sobrevivir importa más que contestar a lo loco.',
+        carrera: 'Tip: mantén la racha para tener oportunidad de power ups.'
+    };
     container.innerHTML = `
-        <div class="instructions-panel">
-            <div style="margin-bottom:0.6rem;">
-                <span class="mode-badge mode-${mode}">${getModeEmoji(mode)} Modo ${getModeLabel(mode)}</span>
+        <div class="instructions-panel instructions-panel-${normalizedMode}">
+            <div class="instructions-hero-head">
+                <div class="instructions-hero-icon">${getModeEmoji(normalizedMode)}</div>
+                <div>
+                    <span class="mode-badge mode-${normalizedMode}">${getModeEmoji(normalizedMode)} Modo ${getModeLabel(normalizedMode)}</span>
+                    <h3 class="instructions-title">${title}</h3>
+                    <p class="instructions-subtitle">${subtitles[normalizedMode] || 'Lee las reglas antes de iniciar.'}</p>
+                </div>
             </div>
-            <ul class="${cls}">
+            <ul class="instructions-list ${normalizedMode}">
                 ${items.map(t => `<li>${t}</li>`).join('')}
             </ul>
+            <div class="instruction-tip">${tips[normalizedMode] || 'Tip: juega con calma y atento al tiempo.'}</div>
         </div>`;
 }
 
 // ── ¿El modo de este quiz es el correcto para esta página? (clasico) ──
 function quizModeOf(d) {
-    const raw = (d.gameMode || d.mode || d.modo || '').toString().toLowerCase();
-    return raw === 'supervivencia' || raw === 'survival' ? 'supervivencia' : 'clasico';
+    const raw = (d.gameMode || d.mode || d.modo || d.modeId || '').toString().toLowerCase();
+    if (raw === 'supervivencia' || raw === 'survival') return 'supervivencia';
+    if (raw === 'carrera' || raw === 'race') return 'carrera';
+    if (raw === 'boss' || raw === 'bossfight' || raw === 'boss_fight' || raw === 'jefe') return 'boss';
+    if (raw === 'battle' || raw === 'battle_royale' || raw === 'battleroyale' || raw === 'royale' || raw === 'duelo') return 'battle';
+    if (raw === 'caos' || raw === 'chaos' || raw === 'random') return 'caos';
+    return 'clasico';
+}
+function pageForMode(mode) {
+    return mode === 'supervivencia' ? 'supervivencia.html'
+        : mode === 'carrera' ? 'carrera.html'
+        : mode === 'boss' ? 'boss-participante.html'
+        : mode === 'battle' ? 'battle-participante.html'
+        : mode === 'caos' ? 'caos-participante.html'
+        : 'clasico.html';
 }
 function quizMatchesMyMode(d) {
     return quizModeOf(d) === MY_MODE;
@@ -456,7 +531,7 @@ function selectQuiz(id, name, status, options = {}) {
 // Si el quiz seleccionado es de otro modo, redirigir a esa página manteniendo el quizId
 function redirectToCorrectMode(quizData, quizId) {
     const mode = quizModeOf(quizData);
-    const targetPage = mode === 'supervivencia' ? 'supervivencia.html' : 'clasico.html';
+    const targetPage = pageForMode(mode);
     localStorage.setItem(PENDING_JOIN_KEY, JSON.stringify({
         quizId,
         quizName: quizData.name || '',
@@ -741,6 +816,9 @@ async function submitAnswer(qIdx, optIdx, q, deadline) {
                 totalScore: prevScore + score,
                 lastResponseTime: now
             });
+            if (liveQuiz.playFormat === 'teams' && partData.teamId && score > 0) {
+                t.set(quizRef, { teamScores: { [partData.teamId]: firebase.firestore.FieldValue.increment(score) } }, { merge: true });
+            }
         });
     } catch(e) {
         console.error('Error guardando respuesta:', e);
@@ -967,7 +1045,7 @@ function clearPendingJoin() {
         return;
     }
     if (!urlQuizId && pendingJoin && pendingJoin.mode && pendingJoin.mode !== MY_MODE) {
-        const targetPage = pendingJoin.mode === 'supervivencia' ? 'supervivencia.html' : 'clasico.html';
+        const targetPage = pageForMode(pendingJoin.mode);
         window.location.href = `${targetPage}?quizId=${encodeURIComponent(pendingJoin.quizId)}&quizName=${encodeURIComponent(pendingJoin.quizName || '')}&join=1`;
         return;
     }

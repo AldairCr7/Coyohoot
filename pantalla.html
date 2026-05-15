@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Coyohoot | Pantalla en vivo</title>
+    <link rel="icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="apple-touch-icon" href="logo.jpeg">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
@@ -260,22 +263,37 @@
       align-items:center;
       gap:.45rem;
     }
+    .instructions-hero{
+      text-align:left;
+      border:1px solid var(--line);
+      background:radial-gradient(circle at top left, rgba(168,85,247,.25), transparent 34%), radial-gradient(circle at bottom right, rgba(59,130,246,.16), transparent 36%), var(--card);
+      border-radius:1.8rem;
+      padding:clamp(1rem,2vw,1.5rem);
+      box-shadow:0 20px 45px rgba(0,0,0,.22);
+    }
+    .instructions-head{display:grid; grid-template-columns:auto minmax(0,1fr); gap:1rem; align-items:center; margin-bottom:1rem;}
+    .instructions-icon{width:clamp(70px,10vw,105px); height:clamp(70px,10vw,105px); border-radius:1.5rem; display:grid; place-items:center; font-size:clamp(2.3rem,5vw,4rem); background:linear-gradient(135deg,#7c3aed,#ec4899,#3b82f6); box-shadow:0 16px 32px rgba(124,58,237,.28);}
     .instructions{
       display:grid;
-      gap:.75rem;
+      grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+      gap:.8rem;
       margin-top:1.1rem;
       text-align:left;
       list-style:none;
     }
     .instructions li{
+      position:relative;
       border:1px solid var(--line);
+      border-left:4px solid #a855f7;
       background:var(--card2);
       border-radius:1.2rem;
-      padding:.9rem 1rem;
-      font-size:clamp(.98rem,1.55vw,1.3rem);
+      padding:.95rem 1rem .95rem 2.7rem;
+      font-size:clamp(.98rem,1.45vw,1.2rem);
       line-height:1.35;
-      font-weight:700;
+      font-weight:800;
     }
+    .instructions li:before{content:'✦'; position:absolute; left:.78rem; top:.9rem; width:1.35rem; height:1.35rem; border-radius:.5rem; display:grid; place-items:center; background:rgba(168,85,247,.25); color:#e9d5ff; font-size:.78rem;}
+    .instructions-tip{margin-top:1rem; padding:.9rem 1rem; border-radius:1rem; background:rgba(34,197,94,.10); border:1px solid rgba(34,197,94,.25); color:#bbf7d0; font-weight:900;}
     .footer{
       display:flex;
       justify-content:space-between;
@@ -288,6 +306,18 @@
     }
     .empty-state{padding:clamp(2rem,5vw,4rem) 1rem;}
     .pulse{animation:pulse 1.6s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.65}}
+
+    .race-track{display:grid;gap:.8rem;margin-top:1rem;}
+    .race-lane{position:relative;min-height:76px;border:1px solid var(--line);border-radius:1.2rem;background:linear-gradient(90deg,rgba(15,23,42,.70),rgba(30,41,59,.42));overflow:hidden;padding:.55rem .75rem;}
+    .race-lane::before{content:'';position:absolute;left:70px;right:55px;top:50%;height:8px;transform:translateY(-50%);border-radius:999px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.20) 0 7%,rgba(255,255,255,.05) 7% 10%);}
+    .race-finish-line{position:absolute;right:36px;top:0;bottom:0;width:10px;background:repeating-linear-gradient(45deg,#fff 0 8px,#111827 8px 16px);opacity:.95;}
+    .race-runner{position:absolute;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:.45rem;transition:left .45s ease;z-index:2;}
+    .race-runner img{width:clamp(42px,5vw,60px);height:clamp(42px,5vw,60px);object-fit:contain;filter:drop-shadow(0 10px 10px rgba(0,0,0,.36));}
+    .race-label{position:absolute;left:.75rem;top:.35rem;z-index:3;font-size:.78rem;font-weight:900;color:#e2e8f0;max-width:145px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .race-level{position:absolute;right:.75rem;bottom:.35rem;z-index:3;font-size:.76rem;color:#86efac;font-weight:900;}
+    .race-scale{display:grid;grid-template-columns:repeat(10,1fr);gap:.25rem;margin-top:.8rem;color:#94a3b8;font-size:.75rem;font-weight:800;text-align:center;}
+    .race-podium{display:flex;justify-content:center;flex-wrap:wrap;gap:.75rem;margin-top:1rem;}
+    .race-podium-card{border:1px solid var(--line2);background:var(--card2);border-radius:1rem;padding:.75rem 1rem;min-width:160px;text-align:center;font-weight:900;}
     @media(max-width:760px){
       body{padding:.5rem;}
       .screen-container{border-radius:1.25rem;min-height:calc(100vh - 1rem);}
@@ -342,12 +372,12 @@
     let screenTimerInterval = null;
     const AVATARS = [1,2,3,4,5,6,7,8].map(n => ({ id:n, name:['El Vice','El Presi','La Secre','Nacho','Coyote','Hacker','Ninja','Astro'][n-1], path:`Avatares/Avatar${n}.svg` }));
     function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-    function modeOf(d){return d && (d.gameMode || d.mode || d.modo) === 'supervivencia' ? 'supervivencia' : 'clasico';}
+    function modeOf(d){const raw=(d && (d.gameMode || d.mode || d.modo) || '').toString().toLowerCase(); if(raw==='supervivencia'||raw==='survival')return 'supervivencia'; if(raw==='carrera'||raw==='race')return 'carrera'; return 'clasico';}
     function avatarOf(p){const byId=AVATARS.find(a=>a.id===Number(p.avatarId)); return p.avatarPath || (typeof p.avatar==='string' && p.avatar.includes('/') ? p.avatar : null) || (byId?byId.path:AVATARS[0].path);}
     function avatarImg(p){return `<img src="${esc(avatarOf(p))}" alt="" onerror="this.src='Avatares/Avatar1.svg'; this.onerror=null;">`;}
     function statusOf(d){return d.status || (Array.isArray(d.questions) ? 'waiting' : 'archived');}
-    function sortRank(list, mode){return [...list].sort((a,b)=> mode==='supervivencia' ? ((b.lives??0)-(a.lives??0)|| (b.correctCount??0)-(a.correctCount??0)|| (b.totalScore??0)-(a.totalScore??0)) : ((b.totalScore??0)-(a.totalScore??0)));}
-    function instructions(mode){return mode==='supervivencia' ? ['Empiezan con 3 vidas.','Cada error quita 1 vida.','Cada 3 aciertos seguidos da 1 vida extra.','Sin vidas quedas eliminado.','Gana quien sobreviva mejor y acumule más.'] : ['Responde antes de que acabe el tiempo.','Acierta rápido para ganar más puntos.','Si fallas, sigues jugando.','El ranking se actualiza después de cada pregunta.','Gana quien tenga más puntos al final.'];}
+    function sortRank(list, mode){return [...list].sort((a,b)=> mode==='carrera' ? ((a.finishedPlace||999)-(b.finishedPlace||999)|| (b.currentLevel||0)-(a.currentLevel||0) || (a.lastRaceAdvanceAt||9999999999999)-(b.lastRaceAdvanceAt||9999999999999)) : (mode==='supervivencia' ? ((b.lives??0)-(a.lives??0)|| (b.correctCount??0)-(a.correctCount??0)|| (b.totalScore??0)-(a.totalScore??0)) : ((b.totalScore??0)-(a.totalScore??0))));}
+    function instructions(mode){return mode==='carrera' ? ['10 niveles hasta la meta.','Cada respuesta correcta avanza 1 nivel.','Las incorrectas no retroceden.','Las preguntas se repiten hasta definir el top 3.','Cada 3 aciertos seguidos puede tocar un power up.'] : (mode==='supervivencia' ? ['Empiezan con 3 vidas.','Cada error quita 1 vida.','Cada 3 aciertos seguidos da 1 vida extra.','Sin vidas quedas eliminado.','Gana quien sobreviva mejor y acumule más.'] : ['Responde antes de que acabe el tiempo.','Acierta rápido para ganar más puntos.','Si fallas, sigues jugando.','El ranking se actualiza después de cada pregunta.','Gana quien tenga más puntos al final.']);}
     function setPill(text, extraClass){pillEl.className = `pill ${extraClass || ''}`.trim(); pillEl.textContent = text;}
     function renderAvatarWall(d){
       stopScreenTimer();
@@ -358,7 +388,7 @@
     function renderInstructions(d){
       const mode=modeOf(d); setPill('📖 Instrucciones');
       stopScreenTimer();
-      cardEl.innerHTML=`<div class="center"><div class="big section-title">${mode==='supervivencia'?'❤️ Supervivencia':'🎯 Clásico'}</div><p class="hint">Lean las reglas antes de iniciar</p></div><ul class="instructions">${instructions(mode).map(x=>`<li>✅ ${x}</li>`).join('')}</ul>`;
+      cardEl.innerHTML=`<div class="instructions-hero"><div class="instructions-head"><div class="instructions-icon">${mode==='carrera'?'🏁':(mode==='supervivencia'?'❤️':'🎯')}</div><div><div class="big section-title">${mode==='carrera'?'Carrera':(mode==='supervivencia'?'Supervivencia':'Clásico')}</div><p class="hint">Lean las reglas antes de iniciar</p></div></div><ul class="instructions">${instructions(mode).map(x=>`<li>${x}</li>`).join('')}</ul><div class="instructions-tip">Tip: mantengan la pantalla visible mientras el admin inicia la partida.</div></div>`;
     }
     function stopScreenTimer(){
       if(screenTimerInterval){ clearInterval(screenTimerInterval); screenTimerInterval = null; }
@@ -389,19 +419,35 @@
       cardEl.innerHTML=`<div class="question-layout"><div><div class="question center">${esc(q.text||'Pregunta activa')}</div><div class="options">${(q.options||[]).map((o,i)=>`<div class="option"><strong>${'ABCD'[i]||''}.</strong> <span>${esc(o)}</span></div>`).join('')}</div><p class="hint center" style="margin-top:1.2rem">Responde desde tu dispositivo</p></div><aside class="screen-timer" id="screenTimerBox"><div class="timer-number" id="screenTimerNumber">${timeLimit}</div><div class="timer-label">segundos</div><div class="timer-track"><div class="timer-fill" id="screenTimerFill"></div></div></aside></div>`;
       startScreenTimer(deadline, timeLimit);
     }
+    function renderRace(d){
+      stopScreenTimer();
+      setPill(statusOf(d)==='finished'?'🏁 Meta definida':'🏁 Carrera en vivo','pulse');
+      const sorted=sortRank(participants,'carrera');
+      const lanes=sorted.map(p=>{
+        const level=Math.max(0,Math.min(10,p.currentLevel||0));
+        const pct=8+(level/10)*84;
+        const place=p.finishedPlace ? `🏁 ${p.finishedPlace}° lugar` : `${level}/10`;
+        const power=p.powerUp ? (p.powerUp==='turbo'?'⚡ Turbo':'🚀 Impulso') : '';
+        return `<div class="race-lane"><div class="race-label">${esc(p.nickname||'Jugador')}</div><div class="race-finish-line"></div><div class="race-runner" style="left:${pct}%">${avatarImg(p)}</div><div class="race-level">${place}${power?` · ${power}`:''}</div></div>`;
+      }).join('') || '<div class="center empty-state"><p class="hint">Aún no hay corredores.</p></div>';
+      const winners=sorted.filter(p=>p.finishedPlace).sort((a,b)=>(a.finishedPlace||9)-(b.finishedPlace||9));
+      const podium=winners.length?`<div class="race-podium">${winners.map(p=>`<div class="race-podium-card">${p.finishedPlace===1?'🥇':p.finishedPlace===2?'🥈':'🥉'}<br>${esc(p.nickname||'Jugador')}</div>`).join('')}</div>`:'';
+      cardEl.innerHTML=`<div class="center"><div class="big section-title">Carrera</div><p class="hint">Salida · 10 niveles · Meta</p></div><div class="race-scale">${Array.from({length:10},(_,i)=>`<span>${i+1}</span>`).join('')}</div><div class="race-track">${lanes}</div>${podium}`;
+    }
     function renderRanking(d){
       stopScreenTimer();
       const mode=modeOf(d); setPill(statusOf(d)==='finished'?'🏁 Resultado final':'📊 Ranking');
-      const rows=sortRank(participants,mode).map((p,i)=>`<div class="rank-row top${i+1}"><div class="pos">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>${avatarImg(p)}<div class="player-cell"><div class="avatar-name">${esc(p.nickname||'Jugador')}</div></div><div class="score">${mode==='supervivencia'?`${p.lives??0}❤️ · ${p.correctCount??0}✓ · ${p.totalScore??0} pts`:`${p.totalScore??0} pts`}</div></div>`).join('') || '<div class="center empty-state"><p class="hint">Sin ranking todavía.</p></div>';
-      cardEl.innerHTML=`<div class="center"><div class="big section-title">${statusOf(d)==='finished'?'Resultados':'Ranking'}</div><p class="hint">${mode==='supervivencia'?'Vidas, aciertos y puntaje':'Puntaje acumulado'}</p></div><div class="ranking">${rows}</div>`;
+      const rows=sortRank(participants,mode).map((p,i)=>`<div class="rank-row top${i+1}"><div class="pos">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>${avatarImg(p)}<div class="player-cell"><div class="avatar-name">${esc(p.nickname||'Jugador')}</div></div><div class="score">${mode==='carrera'?`${p.finishedPlace?'🏁 '+p.finishedPlace+'°':(p.currentLevel||0)+'/10'}`:(mode==='supervivencia'?`${p.lives??0}❤️ · ${p.correctCount??0}✓ · ${p.totalScore??0} pts`:`${p.totalScore??0} pts`)}</div></div>`).join('') || '<div class="center empty-state"><p class="hint">Sin ranking todavía.</p></div>';
+      cardEl.innerHTML=`<div class="center"><div class="big section-title">${statusOf(d)==='finished'?'Resultados':'Ranking'}</div><p class="hint">${mode==='carrera'?'Avance hacia la meta':(mode==='supervivencia'?'Vidas, aciertos y puntaje':'Puntaje acumulado')}</p></div><div class="ranking">${rows}</div>`;
     }
     function renderStopped(){stopScreenTimer(); setPill('⏹️ Detenido'); cardEl.innerHTML='<div class="center empty-state"><div class="big section-title">Coyohoot detenido</div><p class="hint">El admin cerró la sesión. Ya no se aceptan respuestas.</p></div>';}
     function render(){
       if(!quizId){cardEl.innerHTML='<div class="center empty-state"><div class="big section-title">Sin quizId</div><p class="hint">Abre esta pantalla desde el panel de admin.</p></div>';return;}
       if(!quizData) return;
       const d=quizData, st=statusOf(d), rs=d.roundState, sm=d.screenMode;
-      titleEl.textContent=d.name||'Coyohoot'; subtitleEl.textContent=(modeOf(d)==='supervivencia'?'Modo Supervivencia':'Modo Clásico'); countEl.textContent=`${participants.length} participante${participants.length===1?'':'s'}`;
+      titleEl.textContent=d.name||'Coyohoot'; subtitleEl.textContent=(modeOf(d)==='carrera'?'Modo Carrera':(modeOf(d)==='supervivencia'?'Modo Supervivencia':'Modo Clásico')); countEl.textContent=`${participants.length} participante${participants.length===1?'':'s'}`;
       if(st==='stopped' || rs==='stopped') return renderStopped();
+      if(modeOf(d)==='carrera' && (st==='active' || st==='finished' || sm==='race')) return renderRace(d);
       if(st==='finished') return renderRanking(d);
       if(st==='active' && d.showRanking) return renderRanking(d);
       if(st==='active') return renderQuestion(d);

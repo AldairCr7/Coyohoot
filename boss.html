@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coyohoot | Boss Fight</title>
+    <link rel="icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="apple-touch-icon" href="logo.jpeg">
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+</head>
+<body class="boss-screen-body">
+<div class="boss-screen-shell">
+  <div class="top-bar"></div>
+  <div class="boss-stage-header">
+    <div class="brand boss-brand"><div class="logo-wrap boss-logo"><img src="logo.jpeg" alt="Coyohoot"></div><div><h1 id="bossQuizTitle">Boss Fight</h1><p id="bossSubtitle" class="subtitle">Batalla cooperativa en tiempo real</p></div></div>
+    <div id="bossStatusPill" class="pill">⏳ Esperando</div>
+  </div>
+  <section id="bossInstructionsCard" class="boss-card boss-instructions-card">
+    <h2>📖 Reglas del Boss Fight</h2>
+    <div class="instructions-panel">
+      <ul class="instructions-list boss mt-1">
+        <li>Todos juegan juntos contra un <strong>boss común</strong>.</li>
+        <li>El boss tiene <strong>100 HP</strong> y el equipo también tiene <strong>100 HP</strong>.</li>
+        <li>En cada ronda se revisan las respuestas del grupo.</li>
+        <li>Si falla el <strong>50% o más</strong> de participantes, el equipo pierde <strong>5 HP</strong>.</li>
+        <li>Si falla <strong>menos del 50%</strong>, el boss pierde <strong>5 HP</strong>.</li>
+        <li>Ganan todos si el boss llega a 0 HP. Pierden todos si el equipo llega a 0 HP.</li>
+      </ul>
+      <div class="instruction-tip">Tip: si la mayoría falla, el equipo pierde vida.</div>
+    </div>
+  </section>
+  <main id="bossMain" class="boss-stage-main">
+    <section class="boss-card boss-monster-card">
+      <div class="boss-monster">👹</div>
+      <h2 id="bossName">El Boss</h2>
+      <div class="boss-stat-line"><span>Vida del Boss</span><strong id="bossHpText">-- / --</strong></div>
+      <div class="boss-bar"><span id="bossHpBar"></span></div>
+      <div class="boss-stat-line mt-1"><span>Ira</span><strong id="bossRageText">-- / --</strong></div>
+      <div class="boss-bar rage"><span id="bossRageBar"></span></div>
+    </section>
+    <section class="boss-card boss-team-card">
+      <h2>🛡️ Equipo</h2>
+      <div class="boss-stat-line"><span>Vida compartida</span><strong id="teamHpText">-- / --</strong></div>
+      <div class="boss-bar team"><span id="teamHpBar"></span></div>
+      <div id="bossOutcomeBox" class="boss-outcome hidden"></div>
+      <h3 class="mt-2">Contribución</h3>
+      <div id="bossContributors" class="boss-contributors"><p class="small-text pulse">Esperando participantes...</p></div>
+    </section>
+  </main>
+  <section class="boss-card boss-participant-wall">
+    <h2>🐺 Participantes conectados</h2>
+    <div id="bossAvatarGrid" class="boss-avatar-grid"></div>
+  </section>
+  <div class="top-bar"></div>
+</div>
+<script src="firebase.js"></script>
+<script>
+const params=new URLSearchParams(location.search); const quizId=params.get('quizId');
+const els={title:document.getElementById('bossQuizTitle'),sub:document.getElementById('bossSubtitle'),pill:document.getElementById('bossStatusPill'),bossHpText:document.getElementById('bossHpText'),bossHpBar:document.getElementById('bossHpBar'),rageText:document.getElementById('bossRageText'),rageBar:document.getElementById('bossRageBar'),teamText:document.getElementById('teamHpText'),teamBar:document.getElementById('teamHpBar'),outcome:document.getElementById('bossOutcomeBox'),contributors:document.getElementById('bossContributors'),grid:document.getElementById('bossAvatarGrid'),instructions:document.getElementById('bossInstructionsCard')};
+let quizData=null, participants=[];
+function escapeHtml(str){return String(str||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function pct(a,b){return Math.max(0,Math.min(100,Math.round((Number(a||0)/Math.max(1,Number(b||1)))*100)));}
+function statusOf(d){return d.status||'waiting';}
+function modeOf(d){const raw=(d.gameMode||d.mode||d.modo||'').toString().toLowerCase(); return (raw==='boss'||raw==='bossfight'||raw==='boss_fight'||raw==='jefe')?'boss':raw;}
+function avatarHtml(p){const src=p.avatarPath||p.avatar||`Avatares/Avatar${p.avatarId||1}.svg`; return `<img src="${escapeHtml(src)}" onerror="this.src='Avatares/Avatar1.svg';this.onerror=null;" alt="">`;}
+function render(){ if(!quizData){return;} els.title.textContent=quizData.name||'Boss Fight'; if(modeOf(quizData)!=='boss'){els.sub.textContent='Este Coyohoot no es modo Boss'; return;} const status=statusOf(quizData); const bossHP=quizData.bossHP??quizData.bossMaxHP??0, bossMax=quizData.bossMaxHP??0, teamHP=quizData.teamHP??quizData.teamMaxHP??0, teamMax=quizData.teamMaxHP??0, rage=quizData.rage??0, rageMax=quizData.rageMax??100; els.bossHpText.textContent=`${Math.max(0,Math.round(bossHP))} / ${Math.round(bossMax||0)}`; els.teamText.textContent=`${Math.max(0,Math.round(teamHP))} / ${Math.round(teamMax||0)}`; els.rageText.textContent=`${Math.max(0,Math.round(rage))} / ${Math.round(rageMax)}`; els.bossHpBar.style.width=pct(bossHP,bossMax)+'%'; els.teamBar.style.width=pct(teamHP,teamMax)+'%'; els.rageBar.style.width=pct(rage,rageMax)+'%'; if(status==='waiting'){els.pill.textContent=quizData.roundState==='instructions'?'📖 Instrucciones':'⏳ Esperando';} else if(status==='active'){els.pill.textContent='⚔️ Batalla en vivo';} else if(status==='stopped'){els.pill.textContent='⏹️ Detenido';} else {els.pill.textContent=(quizData.bossOutcome==='victory'||quizData.bossState==='victory')?'🎉 Victoria':'💀 Derrota';} if(els.instructions){els.instructions.classList.toggle('hidden', !(status==='waiting' || quizData.roundState==='instructions'));} const outcome=quizData.bossOutcome||quizData.bossState; if(status==='finished'||outcome==='victory'||outcome==='defeat'){els.outcome.classList.remove('hidden'); els.outcome.textContent=outcome==='victory'?'🎉 ¡El equipo derrotó al boss!':'💀 El boss derrotó al equipo';} else {els.outcome.classList.add('hidden');}
+ const ranked=[...participants].sort((a,b)=>{if((b.damageDealt||0)!==(a.damageDealt||0))return(b.damageDealt||0)-(a.damageDealt||0); const aa=(a.bossAnswered||0)?(a.bossCorrect||0)/(a.bossAnswered||1):0; const ba=(b.bossAnswered||0)?(b.bossCorrect||0)/(b.bossAnswered||1):0; if(ba!==aa)return ba-aa; return(a.bossAvgResponseTime||999999)-(b.bossAvgResponseTime||999999);}); if(!ranked.length){els.contributors.innerHTML='<p class="small-text pulse">Esperando participantes...</p>'; els.grid.innerHTML=''; return;} els.contributors.innerHTML=ranked.slice(0,8).map((p,i)=>{const ans=p.bossAnswered||0, cor=p.bossCorrect||0, acc=ans?Math.round((cor/ans)*100):0; return `<div class="boss-contrib-row ${i===0?'top':''}"><span>${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1+'.'}</span>${avatarHtml(p)}<strong>${escapeHtml(p.nickname||'?')}</strong><em>${p.damageDealt||0} dmg · ${acc}%</em></div>`;}).join(''); els.grid.innerHTML=ranked.map(p=>{const ans=p.bossAnswered||0, cor=p.bossCorrect||0; return `<div class="boss-player-card">${avatarHtml(p)}<strong>${escapeHtml(p.nickname||'?')}</strong><span>${p.damageDealt||0} daño</span><small>${cor}/${ans} correctas</small></div>`;}).join(''); }
+if(!quizId){els.sub.textContent='Falta quizId en la URL';}
+else{db.collection('coyohoots').doc(quizId).onSnapshot(s=>{if(!s.exists){els.sub.textContent='No existe el Coyohoot';return;} quizData=s.data()||{}; render();}); db.collection('coyohoots').doc(quizId).collection('participants').onSnapshot(s=>{participants=[]; s.forEach(d=>participants.push({id:d.id,...d.data()})); render();});}
+</script>
+</body>
+</html>

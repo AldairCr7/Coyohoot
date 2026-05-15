@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coyohoot | Modo Caos</title>
+    <link rel="icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="apple-touch-icon" href="logo.jpeg">
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div class="page-container chaos-page">
+  <div class="top-bar"></div>
+  <div class="content">
+    <div class="logo-container"><img src="logo.jpeg" alt="Coyohoot" class="logo"></div>
+
+    <div id="stepSelectQuiz">
+      <h2>🌀 Modo Caos</h2>
+      <p class="subtitle"><span class="mode-badge mode-caos">🌀 Caos</span><br><br>Elige el Coyohoot al que quieres unirte</p>
+      <div id="quizListContainer" class="card"><p class="small-text pulse">Cargando quizzes disponibles...</p></div>
+      <div class="nav-buttons"><a href="index.html" class="btn-outline">🏠 Inicio</a><a href="participante.html" class="btn-outline">↩️ Lista general</a></div>
+    </div>
+
+    <div id="stepNickname" class="hidden">
+      <h2>🌀 Entra al Caos</h2>
+      <div class="card">
+        <div id="selectedQuizName" style="color:#c4b5fd; font-weight:700; margin-bottom:1rem;"></div>
+        <div class="input-group"><label>🌟 Tu nickname</label><input type="text" id="nicknameInput" placeholder="Ej: CoyoteCaos" autocomplete="off" maxlength="20"></div>
+        <div class="input-group"><label>🐺 Elige tu avatar</label><div id="avatarPicker" class="avatar-picker"></div></div>
+        <button id="joinBtn" class="btn-primary full-w">Unirme al caos 🌀</button>
+        <div id="nicknameMsg" class="message hidden"></div>
+      </div>
+      <div class="nav-buttons"><button id="backToListBtn" class="btn-outline">← Volver</button></div>
+    </div>
+
+    <div id="stepWaiting" class="hidden">
+      <h2>⏳ Sala de espera</h2>
+      <div class="card center">
+        <span class="mode-badge mode-caos">🌀 Modo Caos</span>
+        <p class="small-text mt-1">Listo como</p>
+        <p id="waitingNickname" style="color:#c4b5fd; font-size:1.3rem; font-weight:800;"></p>
+        <p class="small-text">Esperando que el admin inicie...</p>
+      </div>
+    </div>
+
+    <div id="stepInstructions" class="hidden">
+      <h2>📖 Reglas del Caos</h2>
+      <div class="card">
+        <div class="instructions-panel">
+          <span class="mode-badge mode-caos">🌀 Modo Caos</span>
+          <ul class="instructions-list caos mt-1">
+            <li>Cada pregunta trae un <strong>efecto global random</strong>.</li>
+            <li>El efecto aplica <strong>igual para todos</strong> los participantes.</li>
+            <li>Puede cambiar tiempo, puntos, rapidez u orden de opciones.</li>
+            <li>Los efectos pueden ser fuertes, raros o rotísimos.</li>
+            <li>No sabrás qué efecto tocará en la siguiente pregunta.</li>
+          </ul>
+        </div>
+        <div class="instruction-tip">Tip: adapta tu estrategia al efecto random de cada pregunta.</div><div class="status-pill waiting pulse mt-2">⏳ Esperando inicio...</div>
+      </div>
+    </div>
+
+    <div id="stepQuestion" class="hidden">
+      <div style="display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap; margin-bottom:0.5rem;">
+        <span class="question-number" id="qNumber">Pregunta</span>
+        <span class="mode-badge mode-caos" id="effectBadge">🌀 Efecto</span>
+      </div>
+      <div id="effectDesc" class="chaos-effect-card"></div>
+      <div class="timer-ring-wrap"><div class="timer-display" id="timerDisplay">30</div></div>
+      <div class="card">
+        <p class="question-text" id="questionText">¿Cargando pregunta?</p>
+        <div class="options-grid" id="optionsGrid"></div>
+        <div id="answerFeedback" class="message hidden"></div>
+      </div>
+    </div>
+
+    <div id="stepBetween" class="hidden">
+      <h2>🌀 Caos aplicado</h2>
+      <div class="card center">
+        <div id="betweenMsg" class="message"></div>
+        <p class="small-text mt-2 pulse">Espera la siguiente pregunta del admin...</p>
+      </div>
+    </div>
+
+    <div id="stepFinished" class="hidden">
+      <h2>🏁 Caos finalizado</h2>
+      <div class="card center"><div id="finalMsg" class="big section-title"></div><p class="hint">Revisa el ranking final en la pantalla.</p><div class="nav-buttons mt-2"><a href="index.html" class="btn-outline">🏠 Inicio</a></div></div>
+    </div>
+
+    <div id="stepStopped" class="hidden"><h2>⏹️ Caos detenido</h2><div class="card center"><div class="status-pill finished">El admin detuvo el Coyohoot</div></div></div>
+  </div>
+  <div class="top-bar" style="margin-top:1rem;"></div>
+</div>
+<script src="firebase.js"></script>
+<script>
+const MY_MODE='caos';
+const SESSION_KEY='coyohoot_session';
+const AVATAR_CATALOG_ALL=[{id:1,name:'El Vice',path:'Avatares/Avatar1.svg'},{id:2,name:'El Presi',path:'Avatares/Avatar2.svg'},{id:3,name:'La Secre',path:'Avatares/Avatar3.svg'},{id:4,name:'Nachito',path:'Avatares/Avatar4.svg'},{id:5,name:'Avatar 5',path:'Avatares/Avatar5.svg'},{id:6,name:'Avatar 6',path:'Avatares/Avatar6.svg'},{id:7,name:'Avatar 7',path:'Avatares/Avatar7.svg'},{id:8,name:'Avatar 8',path:'Avatares/Avatar8.svg'}];
+let AVATARS=[AVATAR_CATALOG_ALL[0]];
+function avatarFileExists(src){return new Promise(resolve=>{const img=new Image(); img.onload=()=>resolve(true); img.onerror=()=>resolve(false); img.src=src;});}
+async function loadAvailableAvatars(){try{const checked=await Promise.all(AVATAR_CATALOG_ALL.map(async a=>(await avatarFileExists(a.path))?a:null)); AVATARS=checked.filter(Boolean); if(!AVATARS.length)AVATARS=[AVATAR_CATALOG_ALL[0]]; if(!AVATARS.some(a=>Number(a.id)===Number(selectedAvatarId)))selectedAvatarId=AVATARS[0].id; renderAvatarPicker();}catch(e){AVATARS=[AVATAR_CATALOG_ALL[0]]; renderAvatarPicker();}}
+let myQuizId=null,myParticipantId=null,myNickname='',mySessionId='',selectedAvatarId=1,gameUnsub=null,timerInt=null,lastQuestionKey='',answeredKey='';
+const $=id=>document.getElementById(id);
+const steps=['stepSelectQuiz','stepNickname','stepWaiting','stepInstructions','stepQuestion','stepBetween','stepFinished','stepStopped'].map($);
+function showOnly(el){steps.forEach(s=>s.classList.add('hidden')); el.classList.remove('hidden');}
+function escapeHtml(str){return String(str||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function modeOf(d){const raw=String((d&& (d.gameMode||d.mode||d.modo||d.modeId))||'').toLowerCase(); if(raw==='caos'||raw==='chaos'||raw==='random')return 'caos'; if(raw==='battle'||raw==='battle_royale'||raw==='battleroyale'||raw==='royale'||raw==='duelo')return 'battle'; if(raw==='boss'||raw==='bossfight'||raw==='boss_fight'||raw==='jefe')return 'boss'; if(raw==='carrera'||raw==='race')return 'carrera'; if(raw==='supervivencia'||raw==='survival')return 'supervivencia'; return 'clasico';}
+function targetPage(m){return m==='caos'?'caos-participante.html':m==='battle'?'battle-participante.html':m==='boss'?'boss-participante.html':m==='carrera'?'carrera.html':m==='supervivencia'?'supervivencia.html':'clasico.html';}
+function normalizedStatus(d){return d.status || (Array.isArray(d.questions)?'waiting':'archived');}
+function showMsg(el,msg,type=''){el.innerHTML=msg; el.className='message '+(type?'msg-'+type:''); el.classList.remove('hidden');}
+function selectedAvatar(){return AVATARS.find(a=>a.id===selectedAvatarId)||AVATARS[0];}
+function renderAvatarPicker(){const wrap=$('avatarPicker'); wrap.innerHTML=''; AVATARS.forEach(a=>{const b=document.createElement('button'); b.type='button'; b.className='avatar-option avatar-image-option'+(a.id===selectedAvatarId?' selected':''); b.innerHTML=`<img src="${a.path}" alt="${a.name}" onerror="this.src='Avatares/Avatar1.svg';this.onerror=null;"><span>${a.name}</span>`; b.onclick=()=>{selectedAvatarId=a.id;renderAvatarPicker();}; wrap.appendChild(b);});}
+function saveSession(){localStorage.setItem(SESSION_KEY,JSON.stringify({quizId:myQuizId,participantId:myParticipantId,nickname:myNickname,sessionId:mySessionId,mode:MY_MODE,avatarId:selectedAvatarId}));}
+function getPendingJoin(){try{return JSON.parse(localStorage.getItem('coyohoot_pending_join')||'null');}catch(e){return null;}}
+function clearPendingJoin(){localStorage.removeItem('coyohoot_pending_join');}
+function seeded(seed){let h=2166136261>>>0; String(seed||'x').split('').forEach(ch=>{h^=ch.charCodeAt(0); h=Math.imul(h,16777619);}); return()=>{h+=h<<13; h^=h>>>7; h+=h<<3; h^=h>>>17; h+=h<<5; return (h>>>0)/4294967296;};}
+function shuffledOptions(q, fx){const opts=(q.options||[]).map((text,i)=>({text,index:i})); if(!(fx&&fx.shuffle))return opts; const rnd=seeded(fx.seed||'chaos'); for(let i=opts.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1)); [opts[i],opts[j]]=[opts[j],opts[i]];} return opts;}
+function calcScore(correct, responseMs, q, fx){if(!correct)return 0; const baseTime=(fx&&fx.adjustedTime)||(q.timeLimit||30); if(fx&&fx.onlyFirstHalf&&responseMs>(baseTime*1000/2))return 0; const remaining=Math.max(0, baseTime*1000-responseMs); const speed=Math.round(500*(remaining/(baseTime*1000))*((fx&&fx.speedBonus)||1)); let score=1000+speed; score=Math.round(score*((fx&&fx.scoreMultiplier)||1)); score+=Math.round((fx&&fx.flatBonus)||0); return Math.max(0,score);}
+function startTimer(deadline){clearInterval(timerInt); const tick=()=>{const left=Math.max(0,Math.ceil((deadline-Date.now())/1000)); $('timerDisplay').textContent=left; if(left<=0){clearInterval(timerInt); document.querySelectorAll('.option-button').forEach(b=>b.disabled=true);} }; tick(); timerInt=setInterval(tick,250);}
+function selectQuiz(id,name,{forceJoinForm=false}={}){myQuizId=id; $('selectedQuizName').textContent='📝 '+(name||'Coyohoot seleccionado'); renderAvatarPicker(); showOnly($('stepNickname'));}
+function loadQuizList(){const box=$('quizListContainer'); box.innerHTML='<p class="small-text pulse">Cargando...</p>'; db.collection('coyohoots').onSnapshot(snap=>{const arr=[]; snap.forEach(doc=>{const d=doc.data()||{}; if(modeOf(d)===MY_MODE && ['waiting','active'].includes(normalizedStatus(d)))arr.push({id:doc.id,d});}); box.innerHTML=arr.length?'':'<p class="small-text">No hay Coyohoots de Caos disponibles.</p>'; arr.forEach(({id,d})=>{const b=document.createElement('button'); b.className='btn-primary full-w'; b.style.marginBottom='0.6rem'; b.innerHTML=`🌀 ${escapeHtml(d.name||'Coyohoot')} <span style="opacity:.75">[${normalizedStatus(d)==='active'?'En curso':'Esperando'}]</span>`; b.onclick=()=>selectQuiz(id,d.name||'',{}); box.appendChild(b);});},e=>box.innerHTML='<p class="msg-error">'+escapeHtml(e.message)+'</p>');}
+async function registerNickname(){const nick=$('nicknameInput').value.trim(); if(nick.length<2){showMsg($('nicknameMsg'),'❌ Escribe un nickname válido.','error');return;} $('joinBtn').disabled=true; try{const qs=await db.collection('coyohoots').doc(myQuizId).get(); if(!qs.exists)throw new Error('El Coyohoot no existe.'); const qd=qs.data()||{}; if(modeOf(qd)!==MY_MODE){location.href=targetPage(modeOf(qd))+'?quizId='+encodeURIComponent(myQuizId)+'&join=1';return;} if(['finished','stopped','archived'].includes(normalizedStatus(qd))||qd.isStopped){showMsg($('nicknameMsg'),'⚠️ Este Caos ya terminó.','warn');$('joinBtn').disabled=false;return;} const exists=await db.collection('coyohoots').doc(myQuizId).collection('participants').where('nickname','==',nick).get(); if(!exists.empty){showMsg($('nicknameMsg'),'⚠️ Ese nickname ya está en uso.','warn');$('joinBtn').disabled=false;return;} const av=selectedAvatar(); const ref=await db.collection('coyohoots').doc(myQuizId).collection('participants').add({nickname:nick,avatar:av.path,avatarId:av.id,avatarPath:av.path,avatarName:av.name,totalScore:0,chaosAnswered:0,chaosCorrect:0,chaosWrong:0,chaosBonus:0,joinedAt:firebase.firestore.FieldValue.serverTimestamp(),sessionId:qd.sessionId||''}); myNickname=nick; myParticipantId=ref.id; mySessionId=qd.sessionId||''; saveSession(); clearPendingJoin(); $('waitingNickname').textContent=nick; startGameListener();}catch(e){showMsg($('nicknameMsg'),'❌ Error: '+escapeHtml(e.message),'error'); $('joinBtn').disabled=false;}}
+function startGameListener(){if(gameUnsub)gameUnsub(); gameUnsub=db.collection('coyohoots').doc(myQuizId).onSnapshot(async snap=>{if(!snap.exists)return; const d=snap.data()||{}; if(d.isStopped||normalizedStatus(d)==='stopped'){showOnly($('stepStopped'));return;} if(normalizedStatus(d)==='finished'){showOnly($('stepFinished')); $('finalMsg').textContent='Puntaje: '+((await db.collection('coyohoots').doc(myQuizId).collection('participants').doc(myParticipantId).get()).data()?.totalScore||0);return;} if(d.roundState==='instructions'){showOnly($('stepInstructions'));return;} if(normalizedStatus(d)!=='active'||d.showRanking){ if(answeredKey){showOnly($('stepBetween'));} else showOnly($('stepWaiting')); return;} renderQuestion(d);});}
+function renderQuestion(d){const qs=d.questions||[]; const idx=d.currentQuestion||0; const q=qs[idx]; if(!q)return; const key=(d.sessionId||'')+'_'+idx+'_'+(d.questionStartTime||''); if(answeredKey===key){showOnly($('stepBetween'));return;} lastQuestionKey=key; const fx=d.currentEffectPayload||{label:d.currentEffectLabel,desc:d.currentEffectDesc,adjustedTime:d.adjustedTime}; $('qNumber').textContent=`Pregunta ${idx+1}/${qs.length}`; $('effectBadge').textContent=d.currentEffectLabel||'🌀 Efecto Caos'; $('effectDesc').innerHTML=`<strong>${escapeHtml(d.currentEffectLabel||'🌀 Caos')}</strong><br><span>${escapeHtml(d.currentEffectDesc||'Efecto global activo para todos.')}</span>`; $('questionText').textContent=q.text||''; const grid=$('optionsGrid'); grid.innerHTML=''; shuffledOptions(q,fx).forEach(o=>{const b=document.createElement('button'); b.className='option-button'; b.textContent=o.text; b.onclick=()=>submitAnswer(d,q,o.index,b); grid.appendChild(b);}); showOnly($('stepQuestion')); startTimer(d.questionDeadline||Date.now()+30000);}
+async function submitAnswer(d,q,originalIndex,btn){if(answeredKey===lastQuestionKey)return; document.querySelectorAll('.option-button').forEach(b=>b.disabled=true); const responseMs=Math.max(0,Date.now()-(d.questionStartTime||Date.now())); const correct=Number(originalIndex)===Number(q.correct); const fx=d.currentEffectPayload||{}; const score=calcScore(correct,responseMs,q,fx); answeredKey=lastQuestionKey; try{const pref=db.collection('coyohoots').doc(myQuizId).collection('participants').doc(myParticipantId); const rref=db.collection('coyohoots').doc(myQuizId).collection('responses').doc(`${myParticipantId}_${d.sessionId||''}_${d.currentQuestion||0}_${d.questionStartTime||0}`); await db.runTransaction(async tx=>{const quizRef=db.collection('coyohoots').doc(myQuizId); const fresh=await tx.get(quizRef); const ps=await tx.get(pref); const fd=fresh.data()||{}; const pd=ps.data()||{}; if(fd.isStopped||normalizedStatus(fd)!=='active'||fd.showRanking)throw new Error('La pregunta ya cerró.'); tx.set(rref,{participantId:myParticipantId,nickname:myNickname,questionIndex:d.currentQuestion,answer:originalIndex,correct,score,responseTime:responseMs,effect:fd.currentEffect,effectLabel:fd.currentEffectLabel,sessionId:fd.sessionId||'',createdAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}); tx.update(pref,{totalScore:firebase.firestore.FieldValue.increment(score),chaosAnswered:firebase.firestore.FieldValue.increment(1),chaosCorrect:firebase.firestore.FieldValue.increment(correct?1:0),chaosWrong:firebase.firestore.FieldValue.increment(correct?0:1),chaosBonus:firebase.firestore.FieldValue.increment(Math.max(0,score-1500)),lastChaosEffect:fd.currentEffectLabel||'',lastResponseTime:responseMs,sessionId:fd.sessionId||''}); if(fd.playFormat==='teams'&&pd.teamId&&score>0){tx.set(quizRef,{teamScores:{[pd.teamId]:firebase.firestore.FieldValue.increment(score)}},{merge:true});}}); const txt=correct?`✅ Correcto. +${score} pts`:`❌ Incorrecto. +0 pts`; showMsg($('answerFeedback'),txt,correct?'success':'error'); setTimeout(()=>{showOnly($('stepBetween')); $('betweenMsg').innerHTML=txt;},900);}catch(e){showMsg($('answerFeedback'),'⚠️ '+escapeHtml(e.message),'warn');}}
+$('joinBtn').onclick=registerNickname; $('backToListBtn').onclick=()=>{showOnly($('stepSelectQuiz')); loadQuizList();};
+(function init(){renderAvatarPicker(); const params=new URLSearchParams(location.search); const urlQuizId=params.get('quizId'); const pending=getPendingJoin(); if(!urlQuizId&&pending&&pending.mode===MY_MODE){selectQuiz(pending.quizId,pending.quizName||'',{forceJoinForm:true});return;} if(urlQuizId){selectQuiz(urlQuizId,params.get('quizName')||'',{forceJoinForm:params.get('join')==='1'}); db.collection('coyohoots').doc(urlQuizId).get().then(s=>{if(s.exists){const d=s.data()||{}; if(modeOf(d)!==MY_MODE)location.href=targetPage(modeOf(d))+'?quizId='+encodeURIComponent(urlQuizId)+'&join=1'; else $('selectedQuizName').textContent='📝 '+(d.name||params.get('quizName')||'Coyohoot seleccionado');}}); return;} try{const saved=JSON.parse(localStorage.getItem(SESSION_KEY)||'null'); if(saved&&saved.mode===MY_MODE&&saved.quizId&&saved.participantId){myQuizId=saved.quizId; myParticipantId=saved.participantId; myNickname=saved.nickname||''; mySessionId=saved.sessionId||''; selectedAvatarId=saved.avatarId||1; startGameListener(); return;}}catch(e){} loadQuizList();})();
+</script>
+</body>
+</html>

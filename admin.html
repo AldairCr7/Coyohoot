@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coyohoot | Admin</title>
+    <link rel="icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="apple-touch-icon" href="logo.jpeg">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -64,7 +67,8 @@
                     <input type="text" id="quizNameInput" placeholder="Ej: Quiz de Redes">
                 </div>
                 <div class="input-group">
-                    <label>🎮 Modo de juego</label>
+                    <label>🎮 Modo sugerido del quiz</label>
+                    <p class="small-text" style="margin-bottom:0.7rem;">El quiz se puede jugar en cualquier modo; este solo será el modo inicial recomendado.</p>
                     <div class="mode-selector" id="modeSelector">
                         <div class="mode-option selected" data-mode="clasico">
                             <div class="mode-emoji">🎯</div>
@@ -75,6 +79,26 @@
                             <div class="mode-emoji">❤️</div>
                             <div class="mode-title">Supervivencia</div>
                             <div class="mode-desc">3 vidas. Pierdes 1 al fallar, ganas 1 cada 3 aciertos seguidos.</div>
+                        </div>
+                        <div class="mode-option" data-mode="carrera">
+                            <div class="mode-emoji">🏁</div>
+                            <div class="mode-title">Carrera</div>
+                            <div class="mode-desc">10 niveles, avatares avanzando y meta con top 3 en tiempo real.</div>
+                        </div>
+                        <div class="mode-option" data-mode="boss">
+                            <div class="mode-emoji">👹</div>
+                            <div class="mode-title">Boss</div>
+                            <div class="mode-desc">Cooperativo: todos dañan al boss y protegen la vida del grupo.</div>
+                        </div>
+                        <div class="mode-option" data-mode="battle">
+                            <div class="mode-emoji">⚔️</div>
+                            <div class="mode-title">Battle Royale</div>
+                            <div class="mode-desc">Duelos 1 vs 1 aleatorios. El último en pie gana.</div>
+                        </div>
+                        <div class="mode-option" data-mode="caos">
+                            <div class="mode-emoji">🌀</div>
+                            <div class="mode-title">Caos</div>
+                            <div class="mode-desc">Cada pregunta trae un efecto global random para todos.</div>
                         </div>
                     </div>
                 </div>
@@ -94,6 +118,42 @@
                 <hr>
                 <div id="activeQuizControl" class="hidden">
                     <div id="quizStatusArea" style="margin-bottom:0.8rem;"></div>
+
+                    <div id="playSetupPanel" class="play-setup-panel hidden">
+                        <div class="play-setup-head">
+                            <div>
+                                <h3>⚙️ Configurar partida</h3>
+                                <p class="small-text">Este quiz puede jugarse en cualquier modo. Elige el modo y el formato antes de iniciar.</p>
+                            </div>
+                            <span id="playSetupSummary" class="status-pill waiting">Individual</span>
+                        </div>
+                        <div class="input-group">
+                            <label>🎮 Modo para esta partida</label>
+                            <select id="controlModeSelect" class="admin-select">
+                                <option value="clasico">🎯 Clásico</option>
+                                <option value="supervivencia">❤️ Supervivencia</option>
+                                <option value="carrera">🏁 Carrera</option>
+                                <option value="boss">👹 Boss</option>
+                                <option value="battle">⚔️ Battle Royale</option>
+                                <option value="caos">🌀 Caos</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>👥 Formato de juego</label>
+                            <div class="format-toggle">
+                                <label><input type="radio" name="controlPlayFormat" value="individual" checked> Individual</label>
+                                <label id="teamsFormatLabel"><input type="radio" name="controlPlayFormat" value="teams"> Equipos</label>
+                            </div>
+                            <p id="bossTeamNotice" class="small-text hidden">Boss ya es cooperativo; por eso no usa equipos normales.</p>
+                        </div>
+                        <div id="teamSizeWrap" class="input-group hidden">
+                            <label>Integrantes por equipo</label>
+                            <input type="number" id="teamSizeInput" min="2" max="5" value="3">
+                            <p class="small-text">Al iniciar, los participantes se reparten aleatoriamente y de forma equilibrada.</p>
+                        </div>
+                        <button id="applyPlaySetupBtn" class="btn-outline full-w">✅ Guardar configuración de partida</button>
+                        <div id="teamPreview" class="team-preview hidden"></div>
+                    </div>
 
                     <!-- TIMER DEL ADMIN (nuevo) -->
                     <div id="adminTimerWrap" style="display:none; flex-direction:column; align-items:center; margin-bottom:1rem;">
@@ -156,11 +216,14 @@
 // ── Estado local ──
 let questions         = [];
 let selectedQuizId    = null;
-let selectedMode      = 'clasico';  // modo del editor: 'clasico' | 'supervivencia'
+let selectedMode      = 'clasico';  // 'clasico' | 'supervivencia' | 'carrera' | 'boss' | 'battle' | 'caos'
 let gameUnsub         = null;
 let participantsUnsub = null;
 let rankingUnsub      = null;
 let currentGameMode   = 'clasico';  // modo del quiz que está siendo controlado
+let currentGameData   = null;
+let currentPlayFormat = 'individual';
+let currentTeamSize   = 3;
 let currentUser       = null;       // { uid, username }
 let authMode          = 'login';    // 'login' | 'register'
 const REGISTRATION_KEY = 'Nachito';
@@ -215,6 +278,15 @@ const showAvatarWallBtn   = document.getElementById('showAvatarWallBtn');
 const instructionsPreview = document.getElementById('instructionsPreview');
 const instructionsPreviewBody = document.getElementById('instructionsPreviewBody');
 const adminRankingHead    = document.getElementById('adminRankingHead');
+const playSetupPanel     = document.getElementById('playSetupPanel');
+const controlModeSelect  = document.getElementById('controlModeSelect');
+const teamSizeInput      = document.getElementById('teamSizeInput');
+const teamSizeWrap       = document.getElementById('teamSizeWrap');
+const teamPreview        = document.getElementById('teamPreview');
+const applyPlaySetupBtn  = document.getElementById('applyPlaySetupBtn');
+const playSetupSummary   = document.getElementById('playSetupSummary');
+const bossTeamNotice     = document.getElementById('bossTeamNotice');
+const teamsFormatLabel   = document.getElementById('teamsFormatLabel');
 
 // ── Helpers ──
 
@@ -222,7 +294,7 @@ const AVATAR_CATALOG = [
     { id: 1, name: 'El Vice',  path: 'Avatares/Avatar1.svg' },
     { id: 2, name: 'El Presi', path: 'Avatares/Avatar2.svg' },
     { id: 3, name: 'La Secre', path: 'Avatares/Avatar3.svg' },
-    { id: 4, name: 'Nacho',    path: 'Avatares/Avatar4.svg' },
+    { id: 4, name: 'Nachito',    path: 'Avatares/Avatar4.svg' },
     { id: 5, name: 'Coyote',   path: 'Avatares/Avatar5.svg' },
     { id: 6, name: 'Hacker',   path: 'Avatares/Avatar6.svg' },
     { id: 7, name: 'Ninja',    path: 'Avatares/Avatar7.svg' },
@@ -257,7 +329,12 @@ function shouldShowStopAction(d) {
 }
 function quizModeOf(d) {
     const raw = (d.gameMode || d.mode || d.modo || '').toString().toLowerCase();
-    return raw === 'supervivencia' || raw === 'survival' ? 'supervivencia' : 'clasico';
+    if (raw === 'supervivencia' || raw === 'survival') return 'supervivencia';
+    if (raw === 'carrera' || raw === 'race') return 'carrera';
+    if (raw === 'boss' || raw === 'bossfight' || raw === 'boss_fight' || raw === 'jefe') return 'boss';
+    if (raw === 'battle' || raw === 'battle_royale' || raw === 'battleroyale' || raw === 'royale' || raw === 'duelo') return 'battle';
+    if (raw === 'caos' || raw === 'chaos' || raw === 'random') return 'caos';
+    return 'clasico';
 }
 function sortByCreatedDesc(a, b) {
     const av = a.data.createdAt && typeof a.data.createdAt.toMillis === 'function' ? a.data.createdAt.toMillis() : 0;
@@ -268,12 +345,138 @@ function sortByCreatedDesc(a, b) {
 
 // ── Helpers reutilizables de modo (compartidos con clasico/supervivencia) ──
 function getModeLabel(mode) {
-    return mode === 'supervivencia' ? 'Supervivencia' : 'Clásico';
+    return mode === 'supervivencia' ? 'Supervivencia' : (mode === 'carrera' ? 'Carrera' : (mode === 'boss' ? 'Boss' : (mode === 'battle' ? 'Battle Royale' : (mode === 'caos' ? 'Caos' : 'Clásico'))));
 }
 function getModeEmoji(mode) {
-    return mode === 'supervivencia' ? '❤️' : '🎯';
+    return mode === 'supervivencia' ? '❤️' : (mode === 'carrera' ? '🏁' : (mode === 'boss' ? '👹' : (mode === 'battle' ? '⚔️' : (mode === 'caos' ? '🌀' : '🎯'))));
+}
+
+function playFormatOf(d) { return (d && d.playFormat === 'teams') ? 'teams' : 'individual'; }
+function clampTeamSize(v) { return Math.max(2, Math.min(5, Number(v) || 3)); }
+function canUseTeams(mode) { return mode !== 'boss'; }
+function updatePlaySetupUI() {
+    const mode = controlModeSelect ? controlModeSelect.value : currentGameMode;
+    const fmt = document.querySelector('input[name="controlPlayFormat"]:checked')?.value || 'individual';
+    const effectiveFmt = canUseTeams(mode) ? fmt : 'individual';
+    if (!canUseTeams(mode)) {
+        bossTeamNotice?.classList.remove('hidden');
+        teamsFormatLabel?.classList.add('disabled-option');
+        const ind = document.querySelector('input[name="controlPlayFormat"][value="individual"]');
+        if (ind) ind.checked = true;
+    } else {
+        bossTeamNotice?.classList.add('hidden');
+        teamsFormatLabel?.classList.remove('disabled-option');
+    }
+    if (teamSizeWrap) teamSizeWrap.classList.toggle('hidden', effectiveFmt !== 'teams');
+    if (playSetupSummary) playSetupSummary.textContent = `${getModeEmoji(mode)} ${getModeLabel(mode)} · ${effectiveFmt === 'teams' ? 'Equipos de ' + clampTeamSize(teamSizeInput?.value) : 'Individual'}`;
+}
+function buildBalancedTeams(players, targetSize) {
+    const shuffled = [...players].sort(() => Math.random() - 0.5);
+    const total = shuffled.length;
+    const size = clampTeamSize(targetSize);
+    const teamCount = Math.max(1, Math.ceil(total / size));
+    const teams = Array.from({ length: teamCount }, (_, i) => ({ id: `team_${i+1}`, name: `Equipo ${i+1}`, members: [], score: 0, progress: 0 }));
+    shuffled.forEach((p, idx) => teams[idx % teamCount].members.push(p.id));
+    return teams;
+}
+async function assignTeamsForQuiz(quizId, teamSize) {
+    const ref = db.collection('coyohoots').doc(quizId);
+    const snap = await ref.collection('participants').get();
+    const players = [];
+    snap.forEach(doc => players.push({ id: doc.id, ...(doc.data() || {}) }));
+    if (!players.length) {
+        await ref.set({ playFormat:'teams', teamSize: clampTeamSize(teamSize), teams: [], teamScores: {}, teamProgress: {}, teamsAssignedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+        return [];
+    }
+    const teams = buildBalancedTeams(players, teamSize);
+    const teamScores = {}, teamProgress = {};
+    teams.forEach(t => { teamScores[t.id] = 0; teamProgress[t.id] = 0; });
+    let batch = db.batch(); let ops = 0;
+    for (const team of teams) {
+        const actualSize = Math.max(1, team.members.length);
+        for (const pid of team.members) {
+            batch.set(ref.collection('participants').doc(pid), {
+                teamId: team.id,
+                teamName: team.name,
+                teamSize: actualSize,
+                participantTeamId: team.id,
+                participantTeamName: team.name
+            }, { merge: true });
+            ops++;
+            if (ops >= 450) { await batch.commit(); batch = db.batch(); ops = 0; }
+        }
+    }
+    if (ops) await batch.commit();
+    await ref.set({ playFormat:'teams', teamSize: clampTeamSize(teamSize), teams, teamScores, teamProgress, teamsAssignedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+    return teams;
+}
+function renderTeamPreviewFromData(data) {
+    if (!teamPreview) return;
+    const teams = Array.isArray(data?.teams) ? data.teams : [];
+    if (playFormatOf(data) !== 'teams' || !teams.length) { teamPreview.classList.add('hidden'); teamPreview.innerHTML=''; return; }
+    teamPreview.classList.remove('hidden');
+    teamPreview.innerHTML = `<h4>👥 Equipos asignados</h4>` + teams.map(t => {
+        const score = data.teamScores && data.teamScores[t.id] != null ? data.teamScores[t.id] : (t.score || 0);
+        return `<div class="team-preview-row"><strong>${escapeHtml(t.name)}</strong><span>${(t.members||[]).length} jugadores · ${Math.round(score)} pts</span></div>`;
+    }).join('');
+}
+async function savePlaySetup({ silent=false } = {}) {
+    if (!selectedQuizId) return;
+    const mode = controlModeSelect.value;
+    let fmt = document.querySelector('input[name="controlPlayFormat"]:checked')?.value || 'individual';
+    if (!canUseTeams(mode)) fmt = 'individual';
+    const size = clampTeamSize(teamSizeInput.value);
+    await db.collection('coyohoots').doc(selectedQuizId).set({
+        gameMode: mode,
+        modeId: mode,
+        playFormat: fmt,
+        teamSize: fmt === 'teams' ? size : null,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge:true });
+    currentGameMode = mode; currentPlayFormat = fmt; currentTeamSize = size;
+    updatePlaySetupUI();
+    if (!silent) showMsg(controlMsg, `✅ Configuración guardada: ${getModeLabel(mode)} · ${fmt === 'teams' ? 'Equipos de ' + size : 'Individual'}.`, 'success');
 }
 function getModeInstructions(mode) {
+    if (mode === 'caos') {
+        return [
+            'Cada pregunta activa un <strong>efecto global random</strong>.',
+            'El efecto aplica <strong>igual para todos</strong> los participantes en esa ronda.',
+            'Puede cambiar tiempo, puntaje, rapidez u orden de opciones.',
+            'Los efectos pueden ser fuertes, raros o rotísimos, pero no rompen la partida.',
+            'Nadie sabe qué efecto tocará en la siguiente pregunta.',
+            'Gana quien sobreviva mejor al caos y termine con más puntos. 🌀'
+        ];
+    }
+    if (mode === 'battle') {
+        return [
+            'El modo Battle Royale son <strong>duelos 1 vs 1</strong> aleatorios.',
+            'Cada duelo se resuelve con preguntas del Coyohoot: gana quien responda <strong>correctamente primero</strong>.',
+            'Si ambos fallan, el duelo continúa con otra pregunta hasta que haya ganador.',
+            'El perdedor queda eliminado y el ganador avanza a la siguiente ronda.',
+            'Si hay jugadores impares, uno recibe <strong>bye</strong> de forma justa y espera la siguiente ronda.',
+            'El torneo termina cuando queda <strong>un último participante en pie</strong>.'
+        ];
+    }
+    if (mode === 'boss') {
+        return [
+            'Todos juegan como <strong>equipo</strong> contra un boss común.',
+            'El boss tiene <strong>100 HP</strong> y el equipo también tiene <strong>100 HP</strong>.',
+            'En cada ronda se revisan las respuestas del grupo.',
+            'Si falla el <strong>50% o más</strong>, el equipo pierde <strong>5 HP</strong>.',
+            'Si falla <strong>menos del 50%</strong>, el boss pierde <strong>5 HP</strong>.',
+            'Al final aparece un ranking de <strong>contribución</strong>: correctas, precisión y rapidez.'
+        ];
+    }
+    if (mode === 'carrera') {
+        return [
+            'La carrera tiene <strong>10 niveles</strong> hasta la meta.',
+            'Cada respuesta <strong>correcta</strong> avanza 1 nivel; una incorrecta no retrocede.',
+            'Las preguntas se repiten en ciclo hasta definir el <strong>top 3</strong>.',
+            'Al llegar a la meta, el participante deja de recibir preguntas.',
+            'Cada <strong>3 aciertos seguidos</strong> puede aparecer un power up balanceado.'
+        ];
+    }
     if (mode === 'supervivencia') {
         return [
             'Empiezas con <strong>3 vidas</strong>. Cada vida cuenta.',
@@ -295,17 +498,33 @@ function getModeInstructions(mode) {
 }
 function renderInstructionsInto(container, mode) {
     const items = getModeInstructions(mode);
-    const cls   = mode === 'supervivencia' ? 'instructions-list survival' : 'instructions-list';
-    const html  = `
-        <div class="instructions-panel">
-            <div style="margin-bottom:0.6rem;">
-                <span class="mode-badge mode-${mode}">${getModeEmoji(mode)} Modo ${getModeLabel(mode)}</span>
+    const normalizedMode = mode || 'clasico';
+    const title = `Reglas de ${getModeLabel(normalizedMode)}`;
+    const subtitles = {
+        clasico: 'Responde rápido, suma puntos y sube en el ranking.',
+        supervivencia: 'Cuida tus vidas: cada error puede costarte la partida.',
+        carrera: 'Avanza hasta la meta contestando bien y usando tus rachas.'
+    };
+    const tips = {
+        clasico: 'Tip: velocidad + precisión = más puntos.',
+        supervivencia: 'Tip: sobrevivir importa más que contestar a lo loco.',
+        carrera: 'Tip: mantén la racha para tener oportunidad de power ups.'
+    };
+    container.innerHTML = `
+        <div class="instructions-panel instructions-panel-${normalizedMode}">
+            <div class="instructions-hero-head">
+                <div class="instructions-hero-icon">${getModeEmoji(normalizedMode)}</div>
+                <div>
+                    <span class="mode-badge mode-${normalizedMode}">${getModeEmoji(normalizedMode)} Modo ${getModeLabel(normalizedMode)}</span>
+                    <h3 class="instructions-title">${title}</h3>
+                    <p class="instructions-subtitle">${subtitles[normalizedMode] || 'Lee las reglas antes de iniciar.'}</p>
+                </div>
             </div>
-            <ul class="${cls}">
+            <ul class="instructions-list ${normalizedMode}">
                 ${items.map(t => `<li>${t}</li>`).join('')}
             </ul>
+            <div class="instruction-tip">${tips[normalizedMode] || 'Tip: juega con calma y atento al tiempo.'}</div>
         </div>`;
-    container.innerHTML = html;
 }
 
 // ── Selector de modo en el editor ──
@@ -314,6 +533,14 @@ modeSelector.addEventListener('click', (e) => {
     if (!opt) return;
     selectedMode = opt.dataset.mode;
     modeSelector.querySelectorAll('.mode-option').forEach(el => el.classList.toggle('selected', el === opt));
+});
+
+if (controlModeSelect) controlModeSelect.addEventListener('change', updatePlaySetupUI);
+document.querySelectorAll('input[name="controlPlayFormat"]').forEach(r => r.addEventListener('change', updatePlaySetupUI));
+if (teamSizeInput) teamSizeInput.addEventListener('input', updatePlaySetupUI);
+if (applyPlaySetupBtn) applyPlaySetupBtn.addEventListener('click', async () => {
+    try { await savePlaySetup(); }
+    catch(e) { showMsg(controlMsg, '❌ Error al guardar configuración: ' + e.message, 'error'); }
 });
 
 // ════════════════════════════════════════════
@@ -568,6 +795,9 @@ saveQuizBtn.addEventListener('click', async () => {
             ownerName: currentUser.username,
             questions,
             gameMode: selectedMode,
+            modeId: selectedMode,
+            playFormat: 'individual',
+            teamSize: null,
             roundState: 'pending',
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             status: 'waiting',
@@ -746,6 +976,7 @@ window.selectQuiz = async function(id) {
     stopAdminTimer();
     selectedQuizId = id;
     activeCtrl.classList.remove('hidden');
+    if (playSetupPanel) playSetupPanel.classList.remove('hidden');
     sectionParticipants.classList.remove('hidden');
     sectionRanking.classList.remove('hidden');
     instructionsPreview.classList.add('hidden');
@@ -769,7 +1000,8 @@ function subscribeToParticipants(id) {
         snap.forEach(d => {
             const chip = document.createElement('span');
             chip.className = 'chip';
-            chip.textContent = escapeHtml(d.data().nickname || d.id);
+            const pd = d.data() || {};
+            chip.textContent = escapeHtml((pd.nickname || d.id) + (pd.teamName ? ' · ' + pd.teamName : ''));
             participantChips.appendChild(chip);
         });
     });
@@ -779,6 +1011,14 @@ function subscribeToRanking(id, mode) {
     // (Re)configurar la cabecera de la tabla según el modo
     if (mode === 'supervivencia') {
         adminRankingHead.innerHTML = '<tr><th>#</th><th>Nombre</th><th class="lives-cell">Vidas</th><th>Aciertos</th><th>Puntos</th></tr>';
+    } else if (mode === 'carrera') {
+        adminRankingHead.innerHTML = '<tr><th>#</th><th>Nombre</th><th>Nivel</th><th>Racha</th><th>Power up</th></tr>';
+    } else if (mode === 'boss') {
+        adminRankingHead.innerHTML = '<tr><th>#</th><th>Nombre</th><th>Daño</th><th>Precisión</th><th>Promedio</th></tr>';
+    } else if (mode === 'battle') {
+        adminRankingHead.innerHTML = '<tr><th>#</th><th>Nombre</th><th>Estado</th><th>Victorias</th><th>Byes</th></tr>';
+    } else if (mode === 'caos') {
+        adminRankingHead.innerHTML = '<tr><th>#</th><th>Nombre</th><th>Puntos</th><th>Aciertos</th><th>Caos</th></tr>';
     } else {
         adminRankingHead.innerHTML = '<tr><th>#</th><th>Nombre</th><th>Puntos</th></tr>';
     }
@@ -787,6 +1027,32 @@ function subscribeToRanking(id, mode) {
     rankingUnsub = db.collection('coyohoots').doc(id).collection('participants').onSnapshot(snap => {
         const arr = [];
         snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+        const teamMode = currentGameData && playFormatOf(currentGameData) === 'teams' && mode !== 'boss';
+        if (teamMode) {
+            adminRankingHead.innerHTML = '<tr><th>#</th><th>Equipo</th><th>Integrantes</th><th>Puntos</th></tr>';
+            const map = new Map();
+            arr.forEach(p => {
+                const tid = p.teamId || 'sin_equipo';
+                const name = p.teamName || 'Sin equipo';
+                if (!map.has(tid)) map.set(tid, { id: tid, name, members: 0, score: 0 });
+                const t = map.get(tid); t.members++; t.score += Number(p.totalScore || 0);
+            });
+            const quizScores = currentGameData.teamScores || {};
+            Object.keys(quizScores).forEach(tid => {
+                if (!map.has(tid)) map.set(tid, { id: tid, name: tid.replace('_',' '), members: 0, score: 0 });
+                map.get(tid).score = Math.max(map.get(tid).score, Number(quizScores[tid] || 0));
+            });
+            const teams = Array.from(map.values()).sort((a,b)=>b.score-a.score);
+            emptyEl(rankingBody);
+            teams.forEach((t, idx) => {
+                const tr = document.createElement('tr');
+                if (idx === 0) tr.className = 'top-1'; else if (idx === 1) tr.className = 'top-2'; else if (idx === 2) tr.className = 'top-3';
+                const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (idx+1)+'.';
+                tr.innerHTML = `<td>${medal}</td><td>${escapeHtml(t.name)}</td><td>${t.members}</td><td>${Math.round(t.score)}</td>`;
+                rankingBody.appendChild(tr);
+            });
+            return;
+        }
         arr.sort(buildRankComparator(mode));
 
         emptyEl(rankingBody);
@@ -805,7 +1071,25 @@ function subscribeToRanking(id, mode) {
                         : (!eliminated && pos === 3) ? '🥉'
                         : pos + '.';
             const nick = escapeHtml(pd.nickname || '?');
-            if (mode === 'supervivencia') {
+            if (mode === 'carrera') {
+                const level = Math.min(10, pd.currentLevel || 0);
+                const place = pd.finishedPlace ? `🏁 ${pd.finishedPlace}°` : `${level}/10`;
+                const streak = pd.consecutiveCorrect || 0;
+                const power = pd.powerUp ? powerUpLabel(pd.powerUp) : '—';
+                tr.innerHTML = `<td>${medal}</td><td>${nick}</td><td>${place}</td><td>${streak}</td><td>${power}</td>`;
+            } else if (mode === 'boss') {
+                const damage = pd.damageDealt || 0;
+                const answered = pd.bossAnswered || 0;
+                const correct = pd.bossCorrect || 0;
+                const accuracy = answered ? Math.round((correct / answered) * 100) : 0;
+                const avg = pd.bossAvgResponseTime ? (pd.bossAvgResponseTime / 1000).toFixed(1) + 's' : '—';
+                tr.innerHTML = `<td>${medal}</td><td>${nick}</td><td>${damage}</td><td>${accuracy}%</td><td>${avg}</td>`;
+            } else if (mode === 'battle') {
+                const state = pd.battleEliminated ? '💀 Eliminado' : (pd.battleChampion ? '👑 Campeón' : (pd.battleWaiting ? '⏳ Espera' : '⚔️ En juego'));
+                tr.innerHTML = `<td>${medal}</td><td>${nick}</td><td>${state}</td><td>${pd.battleWins || 0}</td><td>${pd.byeCount || 0}</td>`;
+            } else if (mode === 'caos') {
+                tr.innerHTML = `<td>${medal}</td><td>${nick}</td><td>${pd.totalScore || 0}</td><td>${pd.chaosCorrect || 0}</td><td>${pd.chaosAnswered || 0}</td>`;
+            } else if (mode === 'supervivencia') {
                 const lives = pd.lives ?? 3;
                 const correct = pd.correctCount ?? 0;
                 const score = pd.totalScore || 0;
@@ -821,6 +1105,33 @@ function subscribeToRanking(id, mode) {
 
 // ── Comparador de ranking según modo ──
 function buildRankComparator(mode) {
+    if (mode === 'carrera') {
+        return (a, b) => {
+            const ap = a.finishedPlace || 999;
+            const bp = b.finishedPlace || 999;
+            if (ap !== bp) return ap - bp;
+            if ((b.currentLevel || 0) !== (a.currentLevel || 0)) return (b.currentLevel || 0) - (a.currentLevel || 0);
+            return (a.lastRaceAdvanceAt || 9999999999999) - (b.lastRaceAdvanceAt || 9999999999999);
+        };
+    }
+    if (mode === 'boss') {
+        return (a, b) => {
+            if ((b.damageDealt || 0) !== (a.damageDealt || 0)) return (b.damageDealt || 0) - (a.damageDealt || 0);
+            const aa = (a.bossAnswered || 0) ? (a.bossCorrect || 0) / (a.bossAnswered || 1) : 0;
+            const ba = (b.bossAnswered || 0) ? (b.bossCorrect || 0) / (b.bossAnswered || 1) : 0;
+            if (ba !== aa) return ba - aa;
+            return (a.bossAvgResponseTime || 999999) - (b.bossAvgResponseTime || 999999);
+        };
+    }
+    if (mode === 'battle') {
+        return (a, b) => {
+            if ((a.battleChampion?1:0) !== (b.battleChampion?1:0)) return (b.battleChampion?1:0) - (a.battleChampion?1:0);
+            if ((a.battleEliminated?1:0) !== (b.battleEliminated?1:0)) return (a.battleEliminated?1:0) - (b.battleEliminated?1:0);
+            if ((b.battleWins || 0) !== (a.battleWins || 0)) return (b.battleWins || 0) - (a.battleWins || 0);
+            if ((a.byeCount || 0) !== (b.byeCount || 0)) return (a.byeCount || 0) - (b.byeCount || 0);
+            return (a.nickname || '').localeCompare(b.nickname || '');
+        };
+    }
     if (mode === 'supervivencia') {
         // En supervivencia: vivos primero (por vidas desc, luego aciertos desc, luego puntos desc),
         // eliminados al final (por aciertos desc, luego puntos desc).
@@ -841,8 +1152,171 @@ function buildRankComparator(mode) {
     return (a, b) => (b.totalScore || 0) - (a.totalScore || 0);
 }
 
+
+function powerUpLabel(p) {
+    return p === 'turbo' ? '⚡ Turbo' : (p === 'impulso' ? '🚀 Impulso' : (p || '—'));
+}
+async function resetRaceParticipants(quizId, sessionId = null) {
+    const snap = await db.collection('coyohoots').doc(quizId).collection('participants').get();
+    if (snap.empty) return;
+    let batch = db.batch();
+    let ops = 0;
+    for (const doc of snap.docs) {
+        batch.update(doc.ref, {
+            currentLevel: 0,
+            finishedPlace: null,
+            finishedAt: null,
+            raceFinished: false,
+            consecutiveCorrect: 0,
+            correctCount: 0,
+            powerUp: null,
+            totalScore: 0,
+            lastRaceAdvanceAt: null,
+            ...(sessionId ? { sessionId } : {})
+        });
+        ops++;
+        if (ops >= 450) { await batch.commit(); batch = db.batch(); ops = 0; }
+    }
+    if (ops) await batch.commit();
+}
+async function getRaceWinnersCount(quizId) {
+    const snap = await db.collection('coyohoots').doc(quizId).collection('participants').get();
+    let count = 0, total = 0;
+    snap.forEach(doc => { total++; if ((doc.data() || {}).finishedPlace) count++; });
+    return { count, total };
+}
+
+async function resetBossParticipants(quizId, sessionId = null) {
+    const snap = await db.collection('coyohoots').doc(quizId).collection('participants').get();
+    if (snap.empty) return;
+    let batch = db.batch();
+    let ops = 0;
+    for (const doc of snap.docs) {
+        batch.update(doc.ref, {
+            damageDealt: 0,
+            contributionScore: 0,
+            bossCorrect: 0,
+            bossWrong: 0,
+            bossAnswered: 0,
+            bossAvgResponseTime: null,
+            bossQuestionSeq: 0,
+            lastBossAnswerAt: null,
+            ...(sessionId ? { sessionId } : {})
+        });
+        ops++;
+        if (ops >= 450) { await batch.commit(); batch = db.batch(); ops = 0; }
+    }
+    if (ops) await batch.commit();
+}
+
+
+async function getBattleAlivePlayers(quizId) {
+    const snap = await db.collection('coyohoots').doc(quizId).collection('participants').get();
+    const players = [];
+    snap.forEach(doc => {
+        const d = doc.data() || {};
+        if (!d.battleEliminated) players.push({ id: doc.id, ...d });
+    });
+    return players;
+}
+function battlePairKey(a, b) { return [a, b].sort().join('__'); }
+function makeBattlePairings(players, history = [], round = 1) {
+    const arr = [...players];
+    // Elegir bye de forma justa: menor byeCount y, en empate, menos victorias; luego aleatorio.
+    let waitingPlayer = null;
+    if (arr.length % 2 === 1) {
+        arr.sort((a,b) => (a.byeCount||0)-(b.byeCount||0) || (a.battleWins||0)-(b.battleWins||0) || Math.random()-0.5);
+        waitingPlayer = arr.shift();
+    }
+    // Emparejar aleatorio evitando repetir si hay alternativa.
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    const used = new Set((history || []).map(h => h.key || battlePairKey(h.playerA, h.playerB)));
+    const pairings = [];
+    while (arr.length >= 2) {
+        const a = arr.shift();
+        let pickIndex = 0;
+        for (let i = 0; i < arr.length; i++) {
+            if (!used.has(battlePairKey(a.id, arr[i].id))) { pickIndex = i; break; }
+        }
+        const b = arr.splice(pickIndex, 1)[0];
+        const duelId = `r${round}_${a.id.slice(0,5)}_${b.id.slice(0,5)}_${Math.random().toString(36).slice(2,6)}`;
+        const questionIndex = Math.floor(Math.random() * 999999);
+        pairings.push({
+            id: duelId,
+            playerA: a.id,
+            playerAName: a.nickname || 'Jugador A',
+            playerAAvatar: a.avatarPath || a.avatar || 'Avatares/Avatar1.svg',
+            playerB: b.id,
+            playerBName: b.nickname || 'Jugador B',
+            playerBAvatar: b.avatarPath || b.avatar || 'Avatares/Avatar1.svg',
+            questionIndex,
+            duelQuestionSeq: 0,
+            state: 'active',
+            winnerId: null,
+            loserId: null,
+            aAnswered: null,
+            bAnswered: null,
+            startedAt: Date.now()
+        });
+    }
+    return { pairings, waitingPlayer };
+}
+async function markBattleByes(quizId, waitingPlayer, sessionId = null) {
+    const snap = await db.collection('coyohoots').doc(quizId).collection('participants').get();
+    if (snap.empty) return;
+    const batch = db.batch();
+    snap.forEach(doc => {
+        const isBye = waitingPlayer && doc.id === waitingPlayer.id;
+        batch.set(doc.ref, {
+            battleWaiting: !!isBye,
+            currentDuelId: null,
+            ...(isBye ? { byeCount: firebase.firestore.FieldValue.increment(1) } : {}),
+            ...(sessionId ? { sessionId } : {})
+        }, { merge: true });
+    });
+    await batch.commit();
+}
+async function resetBattleParticipants(quizId, sessionId = null) {
+    const snap = await db.collection('coyohoots').doc(quizId).collection('participants').get();
+    if (snap.empty) return;
+    let batch = db.batch();
+    let ops = 0;
+    for (const doc of snap.docs) {
+        batch.update(doc.ref, {
+            battleEliminated: false,
+            battleChampion: false,
+            battleWins: 0,
+            battleLosses: 0,
+            byeCount: 0,
+            battleWaiting: false,
+            currentDuelId: null,
+            battleAnswered: 0,
+            battleCorrect: 0,
+            battleWrong: 0,
+            battleAvgResponseTime: null,
+            battleFinishedPlace: null,
+            ...(sessionId ? { sessionId } : {})
+        });
+        ops++;
+        if (ops >= 450) { await batch.commit(); batch = db.batch(); ops = 0; }
+    }
+    if (ops) await batch.commit();
+}
+
 // ── Renderiza estado del juego y sincroniza el timer ──
 function renderGameStatus(data, id) {
+    currentGameData = data || {};
+    currentPlayFormat = playFormatOf(currentGameData);
+    currentTeamSize = clampTeamSize(currentGameData.teamSize || 3);
+    if (controlModeSelect && controlModeSelect.value !== quizModeOf(currentGameData)) controlModeSelect.value = quizModeOf(currentGameData);
+    const fmtInput = document.querySelector(`input[name="controlPlayFormat"][value="${currentPlayFormat}"]`);
+    if (fmtInput) fmtInput.checked = true;
+    if (teamSizeInput) teamSizeInput.value = currentTeamSize;
+    updatePlaySetupUI();
+    renderTeamPreviewFromData(currentGameData);
     const rawStatus = normalizedStatus(data);
     const status = rawStatus === 'stopped' ? 'stopped' : rawStatus;
     const { currentQuestion, questions: qs, showRanking, questionDeadline, roundState } = data;
@@ -898,19 +1372,21 @@ function renderGameStatus(data, id) {
         const q = (qs || [])[qIdx];
 
         if (showRanking) {
-            statusHtml = `${modeBadge}<span class="status-pill waiting">📊 Ranking – Pregunta ${qIdx+1}/${total}</span>`;
-            nextQBtn.textContent = (qIdx + 1 < total) ? '⏭️ Siguiente Pregunta' : '🏁 Finalizar Quiz';
-            nextQBtn.classList.remove('hidden');
+            statusHtml = mode === 'battle' ? `${modeBadge}<span class="status-pill waiting">⚔️ Battle Royale — ronda ${data.battleRound || 1}</span>` : mode === 'carrera' ? `${modeBadge}<span class="status-pill waiting">🏁 Carrera en vivo — ronda ${(data.currentRound ?? 0)+1}</span>` : (mode === 'boss' ? `${modeBadge}<span class="status-pill waiting">👹 Boss Fight — ${data.bossHP || 0}/${data.bossMaxHP || 0} HP</span>` : (mode === 'caos' ? `${modeBadge}<span class="status-pill waiting">🌀 Ranking Caos — ${(data.currentEffectLabel || 'Efecto aplicado')}</span>` : `${modeBadge}<span class="status-pill waiting">📊 Ranking – Pregunta ${qIdx+1}/${total}</span>`));
+            nextQBtn.textContent = mode === 'battle' ? '⚔️ Battle avanza solo' : (mode === 'carrera' ? '⏭️ Siguiente ronda' : (mode === 'boss' ? '👹 Continuar Boss' : ((qIdx + 1 < total) ? '⏭️ Siguiente Pregunta' : '🏁 Finalizar Quiz')));
+            if (mode !== 'boss' && mode !== 'battle') nextQBtn.classList.remove('hidden');
             stopQuizBtn.classList.remove('hidden');
             stopAdminTimer();
 
         } else {
-            statusHtml = `${modeBadge}<span class="status-pill active">▶️ Pregunta ${qIdx+1}/${total}: "${escapeHtml((q&&q.text)||'')}"</span>`;
-            showRankBtn.classList.remove('hidden');
+            statusHtml = mode === 'battle' ? `${modeBadge}<span class="status-pill active">⚔️ Battle en vivo — ronda ${data.battleRound || 1} · duelos ${(data.currentPairings||[]).filter(x=>x.playerB).length}</span>` : (mode === 'carrera' ? `${modeBadge}<span class="status-pill active">🏁 Ronda ${(data.currentRound ?? 0)+1} — pregunta ${(qIdx % total)+1}/${total}: "${escapeHtml((q&&q.text)||'')}"</span>` : (mode === 'boss' ? `${modeBadge}<span class="status-pill active">👹 Boss en vivo — HP ${(data.bossHP || 0)}/${(data.bossMaxHP || 0)} · Equipo ${(data.teamHP || 0)}/${(data.teamMaxHP || 0)}</span>` : (mode === 'caos' ? `${modeBadge}<span class="status-pill active">🌀 ${escapeHtml(data.currentEffectLabel || 'Efecto random')} — Pregunta ${(qIdx % total)+1}/${total}</span>` : `${modeBadge}<span class="status-pill active">▶️ Pregunta ${qIdx+1}/${total}: "${escapeHtml((q&&q.text)||'')}"</span>`)));
+            if (mode !== 'boss' && mode !== 'battle') showRankBtn.classList.remove('hidden');
             stopQuizBtn.classList.remove('hidden');
 
-            if (questionDeadline && questionDeadline !== currentTimerDeadline) {
-                startAdminTimer(questionDeadline, (q && q.timeLimit) || 30, id, qIdx);
+            if (mode !== 'battle' && questionDeadline && questionDeadline !== currentTimerDeadline) {
+                startAdminTimer(questionDeadline, mode === 'caos' ? (data.adjustedTime || ((q && q.timeLimit) || 30)) : ((q && q.timeLimit) || 30), id, qIdx);
+            } else if (mode === 'battle') {
+                stopAdminTimer();
             }
         }
 
@@ -1080,7 +1556,7 @@ async function triggerAutoRanking(quizId) {
 
 openStageBtn.addEventListener('click', () => {
     if (!selectedQuizId) return;
-    const url = 'pantalla.html?quizId=' + encodeURIComponent(selectedQuizId);
+    const url = (currentGameMode === 'boss' ? 'boss.html?quizId=' : (currentGameMode === 'battle' ? 'battle.html?quizId=' : (currentGameMode === 'caos' ? 'caos.html?quizId=' : 'pantalla.html?quizId='))) + encodeURIComponent(selectedQuizId);
     window.open(url, '_blank', 'noopener');
 });
 
@@ -1120,7 +1596,98 @@ beginGameBtn.addEventListener('click', async () => {
     if (!d || !d.questions || d.questions.length === 0) {
         showMsg(controlMsg, '⚠️ Este quiz no tiene preguntas.', 'warn'); return;
     }
-    await launchQuestion(selectedQuizId, 0, d.questions);
+    await savePlaySetup({ silent:true });
+    const latestSnap = await db.collection('coyohoots').doc(selectedQuizId).get();
+    const latest = latestSnap.data() || d;
+    if (playFormatOf(latest) === 'teams' && quizModeOf(latest) !== 'boss') {
+        const teams = await assignTeamsForQuiz(selectedQuizId, latest.teamSize || currentTeamSize || 3);
+        showMsg(controlMsg, `👥 Equipos asignados: ${teams.length}.`, 'success');
+    }
+    d.gameMode = latest.gameMode || d.gameMode;
+    d.playFormat = latest.playFormat || d.playFormat;
+    d.teamSize = latest.teamSize || d.teamSize;
+    if (quizModeOf(d) === 'battle') {
+        const battleSessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        await resetBattleParticipants(selectedQuizId, battleSessionId);
+        const players = await getBattleAlivePlayers(selectedQuizId);
+        if (players.length < 2) {
+            showMsg(controlMsg, '⚠️ Se necesitan al menos 2 participantes para Battle Royale.', 'warn');
+            return;
+        }
+        const pairData = makeBattlePairings(players, [], 1);
+        await db.collection('coyohoots').doc(selectedQuizId).set({
+            sessionId: battleSessionId,
+            status: 'active',
+            isRunning: true,
+            isStopped: false,
+            showRanking: false,
+            roundState: 'playing',
+            screenMode: 'battle',
+            battleState: 'running',
+            battleRound: 1,
+            currentPairings: pairData.pairings,
+            waitingPlayer: pairData.waitingPlayer || null,
+            battleHistory: [],
+            battleChampionId: null,
+            battleChampionName: null,
+        playFormat: 'individual',
+        teamSize: null,
+        teams: [],
+        teamScores: {},
+        teamProgress: {},
+            currentQuestion: 0,
+            questionStartTime: Date.now(),
+            questionDeadline: null,
+            screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        await markBattleByes(selectedQuizId, pairData.waitingPlayer, battleSessionId);
+        showMsg(controlMsg, '⚔️ Battle Royale iniciado.', 'success');
+        return;
+    }
+    if (quizModeOf(d) === 'boss') {
+        const bossSessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        await resetBossParticipants(selectedQuizId, bossSessionId);
+        const playersSnap = await db.collection('coyohoots').doc(selectedQuizId).collection('participants').get();
+        const players = Math.max(1, playersSnap.size || 1);
+        const bossMaxHP = 100;
+        const teamMaxHP = 100;
+        const bossExtra = {
+            sessionId: bossSessionId,
+            bossState: 'running',
+            bossHP: bossMaxHP,
+            bossMaxHP,
+            teamHP: teamMaxHP,
+            teamMaxHP,
+            rage: 0,
+            rageMax: 100,
+            bossAttackDamage: 5,
+            bossSettledRounds: {},
+            bossRule: 'majority_wrong_team_minus_5_else_boss_minus_5',
+            bossQuestionSeq: 0,
+            bossOutcome: null,
+            screenMode: 'boss'
+        };
+        await db.collection('coyohoots').doc(selectedQuizId).set(bossExtra, { merge: true });
+        await launchQuestion(selectedQuizId, 0, d.questions, bossExtra);
+        showMsg(controlMsg, '👹 Boss Fight iniciado.', 'success');
+        return;
+    }
+    if (quizModeOf(d) === 'caos') {
+        const chaosSessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        await resetChaosParticipants(selectedQuizId, chaosSessionId);
+        await db.collection('coyohoots').doc(selectedQuizId).set({ sessionId: chaosSessionId, chaosState: 'running', effectHistory: [], screenMode: 'chaos' }, { merge: true });
+        await launchQuestion(selectedQuizId, 0, d.questions, { sessionId: chaosSessionId, chaosState: 'running', screenMode: 'chaos' });
+        showMsg(controlMsg, '🌀 Modo Caos iniciado.', 'success');
+        return;
+    }
+    let raceExtra = {};
+    if (quizModeOf(d) === 'carrera') {
+        const raceSessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        await resetRaceParticipants(selectedQuizId, raceSessionId);
+        raceExtra = { currentRound: 0, raceState: 'running', raceWinners: [], maxLevels: 10, sessionId: raceSessionId };
+        await db.collection('coyohoots').doc(selectedQuizId).set(raceExtra, { merge: true });
+    }
+    await launchQuestion(selectedQuizId, 0, d.questions, quizModeOf(d) === 'carrera' ? raceExtra : {});
     showMsg(controlMsg, '▶️ Partida iniciada.', 'success');
 });
 
@@ -1131,7 +1698,14 @@ showRankBtn.addEventListener('click', async () => {
         const snap = await db.collection('coyohoots').doc(selectedQuizId).get();
         const d = snap.exists ? (snap.data() || {}) : {};
         await applyMissingSurvivalPenalties(selectedQuizId, d);
-        await db.collection('coyohoots').doc(selectedQuizId).update({ showRanking: true, isRunning: true, screenMode: 'ranking', screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        if (quizModeOf(d) === 'carrera') {
+            const rw = await getRaceWinnersCount(selectedQuizId);
+            if (rw.count >= Math.min(3, rw.total || 3)) {
+                await db.collection('coyohoots').doc(selectedQuizId).update({ status: 'finished', raceState: 'finished', showRanking: true, isRunning: false, screenMode: 'finished', screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(), finishedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                return;
+            }
+        }
+        await db.collection('coyohoots').doc(selectedQuizId).update({ showRanking: true, isRunning: true, screenMode: quizModeOf(d)==='carrera' ? 'race' : (quizModeOf(d)==='caos' ? 'chaosRanking' : 'ranking'), screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp() });
     } catch(e) {
         showMsg(controlMsg, '❌ Error al cerrar pregunta: ' + e.message, 'error');
     }
@@ -1141,6 +1715,42 @@ nextQBtn.addEventListener('click', async () => {
     if (!selectedQuizId) return;
     const snap = await db.collection('coyohoots').doc(selectedQuizId).get();
     const d = snap.data();
+    if (quizModeOf(d) === 'carrera') {
+        const rw = await getRaceWinnersCount(selectedQuizId);
+        if (rw.count >= Math.min(3, rw.total || 3)) {
+            await db.collection('coyohoots').doc(selectedQuizId).update({
+                status: 'finished', raceState: 'finished', showRanking: true,
+                questionDeadline: Date.now(), isRunning: false, isStopped: false,
+                roundState: 'finished', screenMode: 'finished',
+                screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                finishedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            showMsg(controlMsg, '🏁 Carrera finalizada: ya está definido el podio.', 'success');
+            return;
+        }
+        const nextIdx = ((d.currentQuestion ?? 0) + 1) % (d.questions || []).length;
+        const nextRound = (d.currentRound ?? 0) + 1;
+        await launchQuestion(selectedQuizId, nextIdx, d.questions, { currentRound: nextRound, raceState: 'running', screenMode: 'question' });
+        showMsg(controlMsg, `▶️ Ronda ${nextRound + 1} iniciada.`, 'success');
+        return;
+    }
+    if (quizModeOf(d) === 'caos') {
+        const nextIdxChaos = (d.currentQuestion ?? 0) + 1;
+        if (nextIdxChaos >= (d.questions||[]).length) {
+            await db.collection('coyohoots').doc(selectedQuizId).update({
+                status: 'finished', chaosState: 'finished', showRanking: true,
+                questionDeadline: Date.now(), isRunning: false, isStopped: false,
+                roundState: 'finished', screenMode: 'finished',
+                screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                finishedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            showMsg(controlMsg, '🌀 Caos finalizado.', 'success');
+        } else {
+            await launchQuestion(selectedQuizId, nextIdxChaos, d.questions, { chaosState: 'running', screenMode: 'chaos' });
+            showMsg(controlMsg, `🌀 Pregunta caótica ${nextIdxChaos+1} iniciada.`, 'success');
+        }
+        return;
+    }
     const nextIdx = (d.currentQuestion ?? 0) + 1;
     if (nextIdx >= (d.questions||[]).length) {
         await db.collection('coyohoots').doc(selectedQuizId).update({
@@ -1230,7 +1840,31 @@ async function cleanSession(quizId) {
         roundState: 'pending',
         screenMode: 'lobby',
         screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        sessionId: newSessionId
+        sessionId: newSessionId,
+        raceState: 'waiting',
+        raceWinners: [],
+        currentRound: 0,
+        maxLevels: 10,
+        bossState: 'waiting',
+        bossHP: null,
+        bossMaxHP: null,
+        teamHP: null,
+        teamMaxHP: null,
+        rage: 0,
+        bossQuestionSeq: 0,
+        bossOutcome: null,
+        battleState: 'waiting',
+        battleRound: 0,
+        currentPairings: [],
+        waitingPlayer: null,
+        battleHistory: [],
+        battleChampionId: null,
+        battleChampionName: null,
+        playFormat: 'individual',
+        teamSize: null,
+        teams: [],
+        teamScores: {},
+        teamProgress: {}
     });
 }
 
@@ -1246,25 +1880,86 @@ resetQuizBtn.addEventListener('click', async () => {
     } catch(e) { showMsg(controlMsg, '❌ Error: '+e.message, 'error'); }
 });
 
-async function launchQuestion(quizId, qIdx, questions) {
+
+function seededRandom(seed) {
+    let h = 2166136261 >>> 0;
+    const str = String(seed || Date.now());
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return () => { h += h << 13; h ^= h >>> 7; h += h << 3; h ^= h >>> 17; h += h << 5; return ((h >>> 0) / 4294967296); };
+}
+function createChaosEffect(question, qIdx) {
+    const seed = Date.now().toString(36) + '_' + qIdx + '_' + Math.random().toString(36).slice(2, 8);
+    const effects = [
+        { type:'double_score', label:'💥 Doble puntaje', desc:'Las correctas valen el doble.', scoreMultiplier:2, timeMultiplier:1, speedBonus:1, shuffle:false },
+        { type:'half_score', label:'🪓 Mitad de puntaje', desc:'Las correctas valen la mitad.', scoreMultiplier:0.5, timeMultiplier:1, speedBonus:1, shuffle:false },
+        { type:'short_time', label:'⏱️ Tiempo partido', desc:'Tienen la mitad del tiempo.', scoreMultiplier:1.25, timeMultiplier:0.5, speedBonus:1, shuffle:false },
+        { type:'long_time', label:'🛌 Tiempo duplicado', desc:'Más tiempo, pero puntaje normal.', scoreMultiplier:1, timeMultiplier:2, speedBonus:1, shuffle:false },
+        { type:'bonus_rain', label:'🌧️ Lluvia de bonus', desc:'Las correctas reciben +700 puntos.', scoreMultiplier:1, flatBonus:700, timeMultiplier:1, speedBonus:1, shuffle:false },
+        { type:'turbo_chaos', label:'🚀 Turbo Caos', desc:'La rapidez pesa muchísimo.', scoreMultiplier:1.35, timeMultiplier:1, speedBonus:1.8, shuffle:false },
+        { type:'mirror', label:'🪞 Modo espejo', desc:'Las opciones se revuelven igual para todos.', scoreMultiplier:1, timeMultiplier:1, speedBonus:1, shuffle:true },
+        { type:'nightmare', label:'🌑 Pesadilla', desc:'Solo cuentan respuestas en la primera mitad del tiempo.', scoreMultiplier:2.2, timeMultiplier:1, speedBonus:1, onlyFirstHalf:true, shuffle:true },
+        { type:'wild_round', label:'🎲 Ronda salvaje', desc:'Multiplicador de puntaje random global.', scoreMultiplier: +(1 + Math.random()*2.5).toFixed(2), timeMultiplier:1, speedBonus:1, shuffle:true }
+    ];
+    const fx = effects[Math.floor(Math.random() * effects.length)];
+    const baseTime = Number(question && question.timeLimit) || 30;
+    const adjustedTime = Math.max(8, Math.round(baseTime * (fx.timeMultiplier || 1)));
+    return { ...fx, seed, adjustedTime, baseTime };
+}
+async function resetChaosParticipants(quizId, sessionId = null) {
+    const snap = await db.collection('coyohoots').doc(quizId).collection('participants').get();
+    if (snap.empty) return;
+    let batch = db.batch();
+    let ops = 0;
+    for (const doc of snap.docs) {
+        batch.update(doc.ref, {
+            totalScore: 0,
+            chaosAnswered: 0,
+            chaosCorrect: 0,
+            chaosWrong: 0,
+            chaosBonus: 0,
+            lastChaosEffect: null,
+            lastResponseTime: null,
+            ...(sessionId ? { sessionId } : {})
+        });
+        ops++;
+        if (ops >= 450) { await batch.commit(); batch = db.batch(); ops = 0; }
+    }
+    if (ops) await batch.commit();
+}
+
+async function launchQuestion(quizId, qIdx, questions, extra = {}) {
     stopAdminTimer();
     autoRankingScheduled = false;
     currentTimerDeadline = null;
     const q = questions[qIdx];
     const now = Date.now();
+    const isChaos = currentGameMode === 'caos' || extra.chaosState === 'running' || extra.screenMode === 'chaos';
+    const chaosEffect = isChaos ? createChaosEffect(q, qIdx) : null;
+    const timeLimit = chaosEffect ? chaosEffect.adjustedTime : ((q.timeLimit || 30));
     const update = {
         status: 'active',
         currentQuestion: qIdx,
         questionStartTime: now,
-        questionDeadline: now + (q.timeLimit || 30) * 1000,
+        questionDeadline: now + timeLimit * 1000,
         showRanking: false,
         isStopped: false,
         isRunning: true,
         roundState: 'playing',
-        screenMode: 'question',
-        screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        screenMode: isChaos ? 'chaos' : 'question',
+        ...(chaosEffect ? {
+            chaosState: 'running',
+            currentEffect: chaosEffect.type,
+            currentEffectLabel: chaosEffect.label,
+            currentEffectDesc: chaosEffect.desc,
+            currentEffectPayload: chaosEffect,
+            effectSeed: chaosEffect.seed,
+            adjustedTime: chaosEffect.adjustedTime,
+            effectHistory: firebase.firestore.FieldValue.arrayUnion({ questionIndex: qIdx, type: chaosEffect.type, label: chaosEffect.label, seed: chaosEffect.seed, at: now })
+        } : {}),
+        screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        ...extra
     };
-    if (qIdx === 0) {
+    if (qIdx === 0 && !update.sessionId && !((extra.currentRound || 0) > 0)) {
         update.sessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     }
     await db.collection('coyohoots').doc(quizId).update(update);

@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coyohoot | Participante</title>
+    <link rel="icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="apple-touch-icon" href="logo.jpeg">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -18,7 +21,7 @@
         </div>
 
         <h2>🐺 Coyohoot</h2>
-        <p class="subtitle">Elige un Coyohoot disponible. Cada uno tiene su propio modo de juego.</p>
+        <p class="subtitle">Elige un Coyohoot disponible. Entrarás automáticamente a la vista del modo que configuró el admin.</p>
 
         <div id="quizListContainer" class="card">
             <p class="small-text pulse">Cargando quizzes disponibles...</p>
@@ -30,6 +33,10 @@
             <div class="button-group" style="margin-top:0;">
                 <a href="clasico.html" class="btn-secondary">🎯 Modo Clásico</a>
                 <a href="supervivencia.html" class="btn-secondary">❤️ Supervivencia</a>
+                <a href="carrera.html" class="btn-secondary">🏁 Carrera</a>
+                <a href="boss-participante.html" class="btn-secondary">👹 Boss</a>
+                <a href="battle-participante.html" class="btn-secondary">⚔️ Battle Royale</a>
+                <a href="caos-participante.html" class="btn-secondary">🌀 Caos</a>
             </div>
         </div>
 
@@ -58,7 +65,12 @@ function escapeHtml(str) {
 }
 function modeOf(d) {
     const raw = (d.gameMode || d.mode || d.modo || '').toString().toLowerCase();
-    return raw === 'supervivencia' || raw === 'survival' ? 'supervivencia' : 'clasico';
+    if (raw === 'supervivencia' || raw === 'survival') return 'supervivencia';
+    if (raw === 'carrera' || raw === 'race') return 'carrera';
+    if (raw === 'boss' || raw === 'bossfight' || raw === 'boss_fight' || raw === 'jefe') return 'boss';
+    if (raw === 'battle' || raw === 'battle_royale' || raw === 'battleroyale' || raw === 'royale' || raw === 'duelo') return 'battle';
+    if (raw === 'caos' || raw === 'chaos' || raw === 'random') return 'caos';
+    return 'clasico';
 }
 function normalizedStatus(d) {
     // Compatibilidad: quizzes viejos sin status se consideran disponibles.
@@ -74,9 +86,9 @@ function sortByCreatedDesc(a, b) {
     if (av !== bv) return bv - av;
     return (a.data.name || '').localeCompare(b.data.name || '');
 }
-function modeLabel(m) { return m === 'supervivencia' ? 'Supervivencia' : 'Clásico'; }
-function modeEmoji(m) { return m === 'supervivencia' ? '❤️' : '🎯'; }
-function targetPage(m) { return m === 'supervivencia' ? 'supervivencia.html' : 'clasico.html'; }
+function modeLabel(m) { return m === 'supervivencia' ? 'Supervivencia' : (m === 'carrera' ? 'Carrera' : (m === 'boss' ? 'Boss' : (m === 'battle' ? 'Battle Royale' : (m === 'caos' ? 'Caos' : 'Clásico')))); }
+function modeEmoji(m) { return m === 'supervivencia' ? '❤️' : (m === 'carrera' ? '🏁' : (m === 'boss' ? '👹' : (m === 'battle' ? '⚔️' : (m === 'caos' ? '🌀' : '🎯')))); }
+function targetPage(m) { return m === 'supervivencia' ? 'supervivencia.html' : (m === 'carrera' ? 'carrera.html' : (m === 'boss' ? 'boss-participante.html' : (m === 'battle' ? 'battle-participante.html' : (m === 'caos' ? 'caos-participante.html' : 'clasico.html')))); }
 
 function renderQuizButton(doc, d) {
     const m = modeOf(d);

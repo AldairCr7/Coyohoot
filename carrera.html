@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coyohoot | Modo Carrera</title>
+    <link rel="icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="apple-touch-icon" href="logo.jpeg">
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div class="page-container">
+  <div class="top-bar"></div>
+  <div class="content">
+    <div class="logo-container"><img src="logo.jpeg" alt="Coyohoot" class="logo"></div>
+
+    <div id="stepSelectQuiz">
+      <h2>🏁 Modo Carrera</h2>
+      <p class="subtitle"><span class="mode-badge mode-carrera">🏁 Carrera</span><br><br>Elige el Coyohoot al que quieres unirte</p>
+      <div id="quizListContainer" class="card"><p class="small-text pulse">Cargando quizzes disponibles...</p></div>
+      <div class="nav-buttons"><a href="index.html" class="btn-outline">🏠 Inicio</a><a href="participante.html" class="btn-outline">↩️ Lista general</a></div>
+    </div>
+
+    <div id="stepNickname" class="hidden">
+      <h2>🏁 Entra a la carrera</h2>
+      <div class="card">
+        <div id="selectedQuizName" style="color:#c4b5fd; font-weight:700; margin-bottom:1rem;"></div>
+        <div class="input-group"><label>🌟 Tu nickname</label><input type="text" id="nicknameInput" placeholder="Ej: CoyoteRápido" autocomplete="off" maxlength="20"></div>
+        <div class="input-group"><label>🐺 Elige tu avatar</label><div id="avatarPicker" class="avatar-picker"></div></div>
+        <button id="joinBtn" class="btn-primary full-w">Unirme a la carrera 🏁</button>
+        <div id="nicknameMsg" class="message hidden"></div>
+      </div>
+      <div class="nav-buttons"><button id="backToListBtn" class="btn-outline">← Volver</button></div>
+    </div>
+
+    <div id="stepWaiting" class="hidden">
+      <h2>⏳ Sala de espera</h2>
+      <div class="card">
+        <div style="margin-bottom:0.8rem;"><span class="mode-badge mode-carrera">🏁 Modo Carrera</span></div>
+        <p style="color:#94a3b8; font-size:0.9rem;">Listo como</p>
+        <p id="waitingNickname" style="color:#c4b5fd; font-size:1.3rem; font-weight:800; margin:0.3rem 0;"></p>
+        <p style="color:#94a3b8; font-size:0.9rem; margin-bottom:1rem;">en <span id="waitingQuizName" style="color:#a78bfa;"></span></p>
+        <div class="status-pill waiting pulse">⏳ Esperando que el admin inicie...</div>
+        <p class="small-text mt-2">Cuando empiece la carrera solo verás preguntas y tu resultado.</p>
+      </div>
+    </div>
+
+    <div id="stepInstructions" class="hidden">
+      <h2>📖 Reglas de la carrera</h2>
+      <div class="card">
+        <div class="instructions-panel">
+          <span class="mode-badge mode-carrera">🏁 Modo Carrera</span>
+          <ul class="instructions-list carrera mt-1">
+            <li>La carrera tiene <strong>10 niveles</strong> hasta la meta.</li>
+            <li>Cada respuesta correcta avanza <strong>1 nivel</strong>. Una incorrecta no retrocede.</li>
+            <li>Las preguntas se repiten hasta definir los <strong>3 primeros lugares</strong>.</li>
+            <li>Si llegas a la meta, dejas de recibir preguntas.</li>
+            <li>Cada 3 aciertos seguidos puedes obtener un <strong>power up</strong>.</li>
+          </ul>
+        </div>
+        <div class="instruction-tip">Tip: contesta bien seguido para avanzar y aspirar a power ups.</div><div class="status-pill waiting pulse mt-2">⏳ Esperando que inicie la partida...</div>
+      </div>
+    </div>
+
+    <div id="stepQuestion" class="hidden">
+      <div id="qHeader" style="margin-bottom:0.5rem;"><span class="question-number" id="qNumber">Ronda 1</span></div>
+      <div id="racePersonalHud" class="race-personal-hud"></div>
+      <div class="timer-ring-wrap"><div class="timer-display" id="timerDisplay">30</div></div>
+      <div class="card">
+        <p class="question-text" id="questionText">¿Cargando pregunta?</p>
+        <div class="options-grid" id="optionsGrid"></div>
+        <div id="answerFeedback" class="message hidden"></div>
+      </div>
+    </div>
+
+    <div id="stepBetween" class="hidden">
+      <h2>🏁 Carrera en curso</h2>
+      <div class="timer-ring-wrap"><div class="timer-display" id="betweenTimerDisplay">--</div></div>
+      <div class="card">
+        <div id="betweenMsg" class="message"></div>
+        <p class="small-text mt-2 pulse">⏳ Esperando a que termine el tiempo de la ronda...</p>
+      </div>
+    </div>
+
+    <div id="stepFinishedRace" class="hidden">
+      <h2>🏁 Meta</h2>
+      <div class="card center">
+        <div id="myRacePlace" class="big section-title"></div>
+        <p id="myRaceMsg" class="hint"></p>
+        <div class="nav-buttons mt-2"><a href="index.html" class="btn-outline">🏠 Volver al inicio</a></div>
+      </div>
+    </div>
+
+    <div id="stepStopped" class="hidden">
+      <h2>⏹️ Carrera detenida</h2>
+      <div class="card center"><div class="status-pill finished">El admin detuvo el Coyohoot</div><p class="small-text mt-2">Ya no se aceptan respuestas.</p></div>
+    </div>
+  </div>
+  <div class="top-bar" style="margin-top:1rem;"></div>
+</div>
+
+<script src="firebase.js"></script>
+<script>
+const MY_MODE = 'carrera';
+const MAX_LEVELS = 10;
+const SESSION_KEY = 'coyohoot_session';
+const PENDING_JOIN_KEY = 'coyohoot_pending_join';
+const AVATAR_CATALOG_ALL=[{id:1,name:'El Vice',path:'Avatares/Avatar1.svg'},{id:2,name:'El Presi',path:'Avatares/Avatar2.svg'},{id:3,name:'La Secre',path:'Avatares/Avatar3.svg'},{id:4,name:'Nachito',path:'Avatares/Avatar4.svg'},{id:5,name:'Avatar 5',path:'Avatares/Avatar5.svg'},{id:6,name:'Avatar 6',path:'Avatares/Avatar6.svg'},{id:7,name:'Avatar 7',path:'Avatares/Avatar7.svg'},{id:8,name:'Avatar 8',path:'Avatares/Avatar8.svg'}];
+let AVATARS=[AVATAR_CATALOG_ALL[0]];
+function avatarFileExists(src){return new Promise(resolve=>{const img=new Image(); img.onload=()=>resolve(true); img.onerror=()=>resolve(false); img.src=src;});}
+async function loadAvailableAvatars(){try{const checked=await Promise.all(AVATAR_CATALOG_ALL.map(async a=>(await avatarFileExists(a.path))?a:null)); AVATARS=checked.filter(Boolean); if(!AVATARS.length)AVATARS=[AVATAR_CATALOG_ALL[0]]; if(!AVATARS.some(a=>Number(a.id)===Number(selectedAvatarId)))selectedAvatarId=AVATARS[0].id; renderAvatarPicker();}catch(e){AVATARS=[AVATAR_CATALOG_ALL[0]]; renderAvatarPicker();}}
+let selectedAvatarId = 1;
+let myQuizId=null, myNickname=null, myParticipantId=null, mySessionId=null;
+let answeredRounds={}, timerInterval=null, gameUnsub=null, participantUnsub=null;
+let currentRoundSeen=-1, lastDeadlineSeen=null, myLevel=0, myPowerUp=null, myFinishedPlace=null, answeredWaitRound=null;
+let quizCache=null, myQuestionSeq=0, activeLocalSeq=-1, activeDeadline=null;
+
+const $ = id => document.getElementById(id);
+const stepSelectQuiz=$('stepSelectQuiz'), stepNickname=$('stepNickname'), stepWaiting=$('stepWaiting'), stepInstructions=$('stepInstructions'), stepQuestion=$('stepQuestion'), stepBetween=$('stepBetween'), stepFinishedRace=$('stepFinishedRace'), stepStopped=$('stepStopped');
+const quizListContainer=$('quizListContainer'), selectedQuizName=$('selectedQuizName'), nicknameInput=$('nicknameInput'), nicknameMsg=$('nicknameMsg'), avatarPicker=$('avatarPicker'), joinBtn=$('joinBtn'), backToListBtn=$('backToListBtn');
+const waitingNickname=$('waitingNickname'), waitingQuizName=$('waitingQuizName'), qNumber=$('qNumber'), racePersonalHud=$('racePersonalHud'), timerDisplay=$('timerDisplay'), betweenTimerDisplay=$('betweenTimerDisplay'), questionText=$('questionText'), optionsGrid=$('optionsGrid'), answerFeedback=$('answerFeedback'), betweenMsg=$('betweenMsg'), myRacePlace=$('myRacePlace'), myRaceMsg=$('myRaceMsg');
+function escapeHtml(str){return String(str||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function showOnly(el){[stepSelectQuiz,stepNickname,stepWaiting,stepInstructions,stepQuestion,stepBetween,stepFinishedRace,stepStopped].forEach(x=>x.classList.add('hidden')); el.classList.remove('hidden');}
+function showMsg(el,msg,type=''){el.innerHTML=msg; el.className='message'+(type?' msg-'+type:''); el.classList.remove('hidden');}
+function normalizedStatus(d){return d.status || (Array.isArray(d.questions)?'waiting':'archived');}
+function modeOf(d){const raw=(d.gameMode||d.mode||d.modo||d.modeId||'').toString().toLowerCase(); if(raw==='supervivencia'||raw==='survival')return'supervivencia'; if(raw==='carrera'||raw==='race')return'carrera'; if(raw==='boss'||raw==='bossfight'||raw==='boss_fight'||raw==='jefe')return'boss'; if(raw==='battle'||raw==='battle_royale'||raw==='battleroyale'||raw==='royale'||raw==='duelo')return'battle'; if(raw==='caos'||raw==='chaos'||raw==='random')return'caos'; return'clasico';}
+function targetPage(m){return m==='caos'?'caos-participante.html':m==='battle'?'battle-participante.html':m==='boss'?'boss-participante.html':m==='carrera'?'carrera.html':m==='supervivencia'?'supervivencia.html':'clasico.html';}
+function modeLabel(m){return m==='supervivencia'?'Supervivencia':(m==='carrera'?'Carrera':'Clásico');}
+function isJoinableQuiz(d){const st=normalizedStatus(d); return st==='waiting'||st==='active';}
+function sortByCreatedDesc(a,b){const av=a.data.createdAt&&a.data.createdAt.toMillis?a.data.createdAt.toMillis():0; const bv=b.data.createdAt&&b.data.createdAt.toMillis?b.data.createdAt.toMillis():0; return bv-av || (a.data.name||'').localeCompare(b.data.name||'');}
+function selectedAvatar(){return AVATARS.find(a=>a.id===selectedAvatarId)||AVATARS[0];}
+function renderAvatarPicker(){avatarPicker.innerHTML=''; const list=AVATARS.length?AVATARS:[AVATAR_CATALOG_ALL[0]]; list.forEach(a=>{const b=document.createElement('button'); b.type='button'; b.className='avatar-option avatar-image-option'+(a.id===selectedAvatarId?' selected':''); b.innerHTML=`<span class="avatar-card-shine"></span><span class="avatar-image-ring"><img src="${a.path}" alt="${a.name}" loading="lazy"></span><span class="avatar-name">${a.name}</span><span class="avatar-check">✓</span>`; b.onclick=()=>{selectedAvatarId=a.id; renderAvatarPicker();}; avatarPicker.appendChild(b);});}
+loadAvailableAvatars();
+function saveSession(){localStorage.setItem(SESSION_KEY,JSON.stringify({quizId:myQuizId,nickname:myNickname,participantId:myParticipantId,sessionId:mySessionId,mode:MY_MODE,answeredRounds,avatarId:selectedAvatarId,finishedPlace:myFinishedPlace,raceQuestionSeq:myQuestionSeq}));}
+function getSavedSession(){try{const r=localStorage.getItem(SESSION_KEY); return r?JSON.parse(r):null;}catch(e){return null;}}
+function clearSession(){localStorage.removeItem(SESSION_KEY);}
+function getPendingJoin(){try{const r=localStorage.getItem(PENDING_JOIN_KEY); const p=r?JSON.parse(r):null; if(!p||!p.quizId)return null; if(Date.now()-(p.ts||0)>10*60*1000){localStorage.removeItem(PENDING_JOIN_KEY); return null;} return p;}catch(e){return null;}}
+function clearPendingJoin(){localStorage.removeItem(PENDING_JOIN_KEY);}
+
+async function loadQuizList(){quizListContainer.innerHTML='<p class="small-text pulse">Cargando...</p>'; try{const snap=await db.collection('coyohoots').get(); const qs=[]; snap.forEach(doc=>{const d=doc.data()||{}; if(isJoinableQuiz(d)&&modeOf(d)===MY_MODE) qs.push({doc,data:d});}); qs.sort(sortByCreatedDesc); quizListContainer.innerHTML=''; if(!qs.length){quizListContainer.innerHTML='<p class="small-text">😔 No hay Coyohoots de carrera disponibles.</p>'; return;} qs.forEach(({doc,data:d})=>{const b=document.createElement('button'); b.className='btn-primary full-w'; b.style.marginBottom='0.6rem'; b.innerHTML=`🏁 ${escapeHtml(d.name)} <span style="font-size:0.75rem; opacity:0.75;">[${normalizedStatus(d)==='active'?'En curso':'Esperando'}]</span>`; b.onclick=()=>selectQuiz(doc.id,d.name||'',{forceJoinForm:false}); quizListContainer.appendChild(b);});}catch(e){quizListContainer.innerHTML=`<p class="small-text msg-error">Error: ${escapeHtml(e.message)}</p>`;}}
+function redirectToCorrectMode(d,quizId){const m=modeOf(d); localStorage.setItem(PENDING_JOIN_KEY,JSON.stringify({quizId,quizName:d.name||'',mode:m,ts:Date.now()})); location.href=`${targetPage(m)}?quizId=${encodeURIComponent(quizId)}&quizName=${encodeURIComponent(d.name||'')}&join=1`;}
+function selectQuiz(id,name,options={}){myQuizId=id; selectedQuizName.textContent='📝 '+(name||'Coyohoot seleccionado'); renderAvatarPicker(); joinBtn.disabled=false; nicknameMsg.classList.add('hidden'); if(options.forceJoinForm) clearSession(); showOnly(stepNickname);}
+backToListBtn.onclick=()=>{myQuizId=null; showOnly(stepSelectQuiz); loadQuizList();};
+joinBtn.onclick=registerNickname; nicknameInput.addEventListener('keydown',e=>{if(e.key==='Enter')registerNickname();});
+async function registerNickname(){const nick=nicknameInput.value.trim(); if(nick.length<2){showMsg(nicknameMsg,'❌ Escribe un nickname válido.','error');return;} joinBtn.disabled=true; try{const quizSnap=await db.collection('coyohoots').doc(myQuizId).get(); if(!quizSnap.exists) throw new Error('El Coyohoot ya no existe.'); const quizData=quizSnap.data()||{}; if(modeOf(quizData)!==MY_MODE){redirectToCorrectMode(quizData,myQuizId);return;} if(['finished','stopped','archived'].includes(normalizedStatus(quizData))||quizData.isStopped){showMsg(nicknameMsg,'🏁 Esta carrera ya terminó.','warn'); joinBtn.disabled=false; return;} const existing=await db.collection('coyohoots').doc(myQuizId).collection('participants').where('nickname','==',nick).get(); if(!existing.empty){showMsg(nicknameMsg,'⚠️ Ese nickname ya está en uso.','warn'); joinBtn.disabled=false; return;} const av=selectedAvatar(); const ref=await db.collection('coyohoots').doc(myQuizId).collection('participants').add({nickname:nick,avatar:av.path,avatarId:av.id,avatarPath:av.path,avatarName:av.name,totalScore:0,currentLevel:0,finishedPlace:null,finishedAt:null,raceFinished:false,consecutiveCorrect:0,correctCount:0,powerUp:null,raceQuestionSeq:0,joinedAt:firebase.firestore.FieldValue.serverTimestamp(),lastResponseTime:null,sessionId:quizData.sessionId||''}); myNickname=nick; myParticipantId=ref.id; mySessionId=quizData.sessionId||''; answeredRounds={}; myQuestionSeq=0; activeLocalSeq=-1; saveSession(); clearPendingJoin(); waitingNickname.textContent=nick; waitingQuizName.textContent=quizData.name||''; startGameListener(myQuizId);}catch(e){showMsg(nicknameMsg,'❌ Error: '+escapeHtml(e.message),'error'); joinBtn.disabled=false;}}
+function startGameListener(quizId){
+  if(gameUnsub)gameUnsub();
+  if(participantUnsub)participantUnsub();
+  showOnly(stepWaiting);
+  participantUnsub=db.collection('coyohoots').doc(quizId).collection('participants').doc(myParticipantId).onSnapshot(s=>{
+    if(!s.exists)return;
+    const p=s.data()||{};
+    if(p.sessionId && p.sessionId !== mySessionId){ mySessionId = p.sessionId; saveSession(); }
+    myLevel=p.currentLevel||0;
+    myPowerUp=p.powerUp||null;
+    const remoteSeq=Number.isFinite(p.raceQuestionSeq)?p.raceQuestionSeq:(p.raceQuestionSeq||0);
+    if(!p.finishedPlace && remoteSeq!==myQuestionSeq){
+      myQuestionSeq=remoteSeq;
+      saveSession();
+      if(quizCache && normalizedStatus(quizCache)==='active') renderCurrentRaceQuestion(quizCache,true);
+    }
+    if(p.finishedPlace && !myFinishedPlace){myFinishedPlace=p.finishedPlace; saveSession(); showRaceFinished(p.finishedPlace);}
+    else if(stepQuestion && !stepQuestion.classList.contains('hidden')) renderHud();
+  });
+  gameUnsub=db.collection('coyohoots').doc(quizId).onSnapshot(s=>{if(!s.exists)return; handleGameState(s.data()||{});});
+}
+function handleGameState(d){
+  quizCache=d;
+  const status=normalizedStatus(d);
+  if(modeOf(d)!==MY_MODE){redirectToCorrectMode(d,myQuizId);return;}
+  if(d.sessionId && d.sessionId !== mySessionId){ mySessionId = d.sessionId; saveSession(); }
+  if(status==='stopped'||d.isStopped){stopTimer(); showOnly(stepStopped); clearSession(); return;}
+  if(myFinishedPlace){stopTimer(); showRaceFinished(myFinishedPlace); return;}
+  if(status==='finished'){stopTimer(); showFinalOrWaiting(d); return;}
+  if(status==='waiting'){
+    stopTimer();
+    activeLocalSeq=-1;
+    if(d.roundState==='instructions')showOnly(stepInstructions); else showOnly(stepWaiting);
+    return;
+  }
+  if(status==='active'){
+    renderCurrentRaceQuestion(d,false);
+  }
+}
+function renderCurrentRaceQuestion(d,force=false){
+  const questions=d.questions||[];
+  if(!questions.length){showOnly(stepWaiting); return;}
+  if(myFinishedPlace){showRaceFinished(myFinishedPlace); return;}
+  const seq=Math.max(0,myQuestionSeq||0);
+  const qIdx=seq % questions.length;
+  const q=questions[qIdx];
+  if(!q)return;
+  if(!force && activeLocalSeq===seq && !stepQuestion.classList.contains('hidden')) return;
+  const timeLimit=q.timeLimit||30;
+  activeLocalSeq=seq;
+  activeDeadline=Date.now()+(timeLimit*1000);
+  renderQuestion(q,qIdx,questions.length,activeDeadline,seq);
+}
+function renderHud(){const power=myPowerUp?` · Power up: <strong>${myPowerUp==='turbo'?'⚡ Turbo':'🚀 Impulso'}</strong>`:''; racePersonalHud.innerHTML=`<div class="status-pill waiting">Tu avance: <strong>${myLevel}/${MAX_LEVELS}</strong>${power}</div>`;}
+function shuffledOptions(q,seq){
+  const source=(q.options||[]).map((text,originalIndex)=>({text,originalIndex}));
+  for(let i=source.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [source[i],source[j]]=[source[j],source[i]];
+  }
+  if(source.length>1 && source.every((item,i)=>item.originalIndex===i)){
+    [source[0],source[1]]=[source[1],source[0]];
+  }
+  return source;
+}
+function renderQuestion(q,qIdx,total,deadline,seq){
+  showOnly(stepQuestion);
+  qNumber.textContent=`Pregunta ${qIdx+1} de ${total} · Turno ${seq+1}`;
+  questionText.textContent=q.text||'';
+  answerFeedback.classList.add('hidden');
+  renderHud();
+  optionsGrid.innerHTML='';
+  shuffledOptions(q,seq).forEach((opt,displayIndex)=>{
+    const b=document.createElement('button');
+    b.className='option-btn';
+    b.textContent=opt.text;
+    b.dataset.originalIndex=String(opt.originalIndex);
+    b.onclick=()=>submitAnswer(seq,qIdx,opt.originalIndex,q,deadline);
+    optionsGrid.appendChild(b);
+  });
+  startTimer(deadline,q.timeLimit||30);
+}
+function startTimer(deadline,totalSecs,display=timerDisplay){
+  stopTimer();
+  function tick(){
+    const rem=Math.max(0,Math.ceil((deadline-Date.now())/1000));
+    display.textContent=rem;
+    display.style.setProperty('--progress',(rem/(totalSecs||30))*100+'%');
+    display.classList.toggle('urgent',rem<=5);
+    if(rem<=0){stopTimer(); disableOptions(); showMsg(answerFeedback,'⌛ Se acabó el tiempo en esta pregunta.','warn');}
+  }
+  tick();
+  timerInterval=setInterval(tick,500);
+}
+function stopTimer(){if(timerInterval){clearInterval(timerInterval);timerInterval=null;} [timerDisplay,betweenTimerDisplay].forEach(el=>el&&el.classList.remove('urgent'));}
+function disableOptions(){optionsGrid.querySelectorAll('.option-btn').forEach(b=>b.disabled=true);}
+function showAnsweredWait(result,deadline,totalSecs,round){
+  showOnly(stepBetween);
+  const msg=result&&result.correct?`✅ Respuesta registrada. Avanzaste ${result.advance||1} nivel(es).`:(result?`❌ Respuesta registrada. No avanzas, pero sigues en carrera.`:'✅ Respuesta registrada.');
+  showMsg(betweenMsg,msg,result&&result.correct?'success':'warn');
+  betweenTimerDisplay.textContent='Siguiente...';
+}
+function maybeGrantPowerUp(streak,currentPower){if(currentPower)return currentPower; if(streak>0 && streak%3===0 && Math.random()<0.40){return Math.random()<0.5?'turbo':'impulso';} return null;}
+async function submitAnswer(seq,qIdx,optIdx,q,deadline){
+  if(activeLocalSeq!==seq)return;
+  disableOptions();
+  stopTimer();
+  const now=Date.now();
+  const isCorrect=optIdx===q.correct;
+  const timeLimit=q.timeLimit||30;
+  const elapsed=Math.max(0,(now-(deadline-timeLimit*1000))/1000);
+  const timeLeft=Math.max(0,timeLimit-elapsed);
+  const baseScore=isCorrect?1000+Math.round((timeLeft/timeLimit)*500):0;
+  try{
+    let result={correct:isCorrect,advance:0,place:null,power:null,nextSeq:seq+1};
+    await db.runTransaction(async t=>{
+      const quizRef=db.collection('coyohoots').doc(myQuizId);
+      const quizSnap=await t.get(quizRef);
+      const quiz=quizSnap.data()||{};
+      const liveStatus=normalizedStatus(quiz);
+      if(liveStatus!=='active'||quiz.isStopped)throw new Error('QUESTION_CLOSED');
+      const questions=quiz.questions||[];
+      if(!questions.length)throw new Error('NO_QUESTIONS');
+      const partRef=quizRef.collection('participants').doc(myParticipantId);
+      const partSnap=await t.get(partRef);
+      const p=partSnap.data()||{};
+      if(p.finishedPlace)throw new Error('ALREADY_FINISHED');
+      const expectedSeq=p.raceQuestionSeq||0;
+      if(expectedSeq!==seq)throw new Error('STALE_QUESTION');
+      const respRef=quizRef.collection('responses').doc(`${myParticipantId}_race${seq}`);
+      const respSnap=await t.get(respRef);
+      if(respSnap.exists)throw new Error('ALREADY_ANSWERED');
+      let level=p.currentLevel||0, streak=p.consecutiveCorrect||0, correctCount=p.correctCount||0, power=p.powerUp||null, consumedPower=null, advance=0, place=null;
+      if(isCorrect){
+        advance=1;
+        if(power==='turbo'||power==='impulso'){advance+=1; consumedPower=power; power=null;}
+        level=Math.min(MAX_LEVELS,level+advance);
+        streak+=1;
+        correctCount+=1;
+        power=maybeGrantPowerUp(streak,power);
+        if(level>=MAX_LEVELS){
+          const winners=Array.isArray(quiz.raceWinners)?quiz.raceWinners.slice():[];
+          if(!winners.some(w=>w.participantId===myParticipantId) && winners.length<3){
+            place=winners.length+1;
+            winners.push({participantId:myParticipantId,nickname:myNickname,place,finishedAt:now});
+            t.update(quizRef,{raceWinners:winners,raceState:winners.length>=3?'finished':'running',status:winners.length>=3?'finished':'active',showRanking:false,isRunning:winners.length>=3?false:true,screenMode:winners.length>=3?'finished':'race',screenUpdatedAt:firebase.firestore.FieldValue.serverTimestamp(),finishedAt:winners.length>=3?firebase.firestore.FieldValue.serverTimestamp():quiz.finishedAt||null});
+          }
+        }
+      } else {
+        streak=0;
+      }
+      const update={currentLevel:level,consecutiveCorrect:streak,correctCount,totalScore:(p.totalScore||0)+baseScore,lastResponseTime:now,lastRaceAdvanceAt:isCorrect?now:(p.lastRaceAdvanceAt||null),powerUp:power,raceQuestionSeq:place?(p.raceQuestionSeq||seq):seq+1};
+      if(place){update.finishedPlace=place; update.finishedAt=firebase.firestore.FieldValue.serverTimestamp(); update.raceFinished=true;}
+      t.update(partRef,update);
+      if (quiz.playFormat === 'teams' && p.teamId) {
+        const balancedProgress = isCorrect ? (1 / Math.max(1, Number(p.teamSize || 1))) : 0;
+        const teamScoreGain = isCorrect ? baseScore : 0;
+        const teamPatch = { teamProgress: { [p.teamId]: firebase.firestore.FieldValue.increment(balancedProgress) } };
+        if (teamScoreGain > 0) teamPatch.teamScores = { [p.teamId]: firebase.firestore.FieldValue.increment(teamScoreGain) };
+        t.set(quizRef, teamPatch, { merge: true });
+      }
+      t.set(respRef,{participantId:myParticipantId,nickname:myNickname,teamId:p.teamId||null,teamName:p.teamName||null,questionIdx:qIdx,round:seq,answer:optIdx,correct:isCorrect,score:baseScore,responseTime:elapsed,answeredAt:now,mode:'carrera',advance,levelAfter:level,powerUpBefore:p.powerUp||null,powerUpConsumed:consumedPower,powerUpAfter:power,finishedPlace:place});
+      result={correct:isCorrect,advance,place,power,nextSeq:seq+1};
+    });
+    const opts=optionsGrid.querySelectorAll('.option-btn');
+    opts.forEach(b=>{
+      const originalIndex=Number(b.dataset.originalIndex);
+      if(originalIndex===q.correct)b.classList.add('correct');
+      else if(originalIndex===optIdx&&!isCorrect)b.classList.add('wrong');
+    });
+    answeredRounds[seq]=result;
+    myLevel=Math.min(MAX_LEVELS,myLevel+(result.advance||0));
+    if(result.power)myPowerUp=result.power;
+    if(result.place){
+      myFinishedPlace=result.place;
+      saveSession();
+      showMsg(answerFeedback,`🏁 ¡Llegaste a la meta! Lugar ${result.place}.`,'success');
+      setTimeout(()=>showRaceFinished(result.place),700);
+    } else {
+      myQuestionSeq=result.nextSeq;
+      saveSession();
+      showMsg(answerFeedback,result.correct?`✅ Correcto. Avanzaste ${result.advance||1} nivel(es).`:`❌ Incorrecto. No avanzas.`,result.correct?'success':'warn');
+      setTimeout(()=>{ if(quizCache && !myFinishedPlace) renderCurrentRaceQuestion(quizCache,true); },650);
+    }
+  }catch(e){
+    saveSession();
+    if(e.message==='STALE_QUESTION'){
+      showMsg(answerFeedback,'🔄 Ya se registró esta pregunta. Cargando la siguiente...','warn');
+      setTimeout(()=>{ if(quizCache) renderCurrentRaceQuestion(quizCache,true); },600);
+    } else {
+      showMsg(answerFeedback,e.message==='ALREADY_FINISHED'?'🏁 Ya terminaste la carrera.':'⏹️ La carrera ya fue cerrada. No se guardó tu respuesta.','warn');
+    }
+  }
+}
+function showRaceFinished(place){stopTimer(); showOnly(stepFinishedRace); myRacePlace.textContent=place===1?'🥇 1° lugar':place===2?'🥈 2° lugar':place===3?'🥉 3° lugar':`🏁 Lugar ${place}`; myRaceMsg.textContent='Ya llegaste a la meta. No recibirás más preguntas.';}
+function showFinalOrWaiting(d){if(myFinishedPlace)showRaceFinished(myFinishedPlace); else {showOnly(stepFinishedRace); myRacePlace.textContent='🏁 Carrera finalizada'; myRaceMsg.textContent='La carrera terminó porque ya se definieron los tres primeros lugares.';} clearSession();}
+(function init(){const params=new URLSearchParams(location.search); const urlQuizId=params.get('quizId'); const pending=getPendingJoin(); if(!urlQuizId&&pending&&pending.mode===MY_MODE){selectQuiz(pending.quizId,pending.quizName||'',{forceJoinForm:true}); return;} if(!urlQuizId&&pending&&pending.mode&&pending.mode!==MY_MODE){location.href=`${targetPage(pending.mode)}?quizId=${encodeURIComponent(pending.quizId)}&quizName=${encodeURIComponent(pending.quizName||'')}&join=1`; return;} if(urlQuizId){const urlQuizName=params.get('quizName')||''; const force=params.get('join')==='1'; if(urlQuizName||force)selectQuiz(urlQuizId,urlQuizName,{forceJoinForm:force}); db.collection('coyohoots').doc(urlQuizId).get().then(s=>{if(!s.exists){showOnly(stepSelectQuiz); loadQuizList(); return;} const d=s.data()||{}; if(modeOf(d)!==MY_MODE){redirectToCorrectMode(d,urlQuizId);return;} if(['finished','stopped','archived'].includes(normalizedStatus(d))||d.isStopped){showOnly(stepSelectQuiz);loadQuizList();return;} if(!(urlQuizName||force))selectQuiz(urlQuizId,d.name||'',{}); else selectedQuizName.textContent='📝 '+(d.name||urlQuizName||'Coyohoot seleccionado');}).catch(()=>{if(!(urlQuizName||force)){showOnly(stepSelectQuiz);loadQuizList();}}); return;} const saved=getSavedSession(); if(saved&&saved.quizId&&saved.participantId&&saved.mode===MY_MODE){myQuizId=saved.quizId; myNickname=saved.nickname; myParticipantId=saved.participantId; mySessionId=saved.sessionId||''; answeredRounds=saved.answeredRounds||{}; selectedAvatarId=saved.avatarId||1; myFinishedPlace=saved.finishedPlace||null; myQuestionSeq=saved.raceQuestionSeq||0; startGameListener(myQuizId); return;} showOnly(stepSelectQuiz); loadQuizList();})();
+</script>
+</body>
+</html>

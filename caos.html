@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coyohoot | Pantalla Caos</title>
+    <link rel="icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="logo.jpeg">
+    <link rel="apple-touch-icon" href="logo.jpeg">
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+</head>
+<body class="chaos-screen-body">
+  <div class="chaos-screen-shell">
+    <header class="chaos-screen-header">
+      <div class="chaos-brand">
+        <div class="chaos-logo-box"><img src="logo.jpeg" alt="Coyohoot"></div>
+        <div class="chaos-title-wrap">
+          <span class="mode-badge mode-caos">🌀 Modo Caos</span>
+          <h1 id="quizTitle">Coyohoot Caos</h1>
+          <p id="stageSub">Cada pregunta tiene un efecto global random para todos.</p>
+        </div>
+      </div>
+      <div class="chaos-status-chip" id="statusChip">Conectando...</div>
+    </header>
+
+    <main id="stageContent" class="chaos-screen-main">
+      <section class="chaos-panel chaos-center-panel">
+        <div class="chaos-big-icon">🌀</div>
+        <h2>Esperando datos...</h2>
+        <p class="small-text pulse">Conectando a Firebase</p>
+      </section>
+    </main>
+  </div>
+
+<script src="firebase.js"></script>
+<script>
+const params = new URLSearchParams(location.search);
+const quizId = params.get('quizId');
+const content = document.getElementById('stageContent');
+const statusChip = document.getElementById('statusChip');
+
+function escapeHtml(str){
+  return String(str ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function avatarHtml(p, cls='chaos-avatar-sm'){
+  const src = p.avatarPath || p.avatar || 'Avatares/Avatar1.svg';
+  return `<img src="${escapeHtml(src)}" class="${cls}" onerror="this.src='Avatares/Avatar1.svg';this.onerror=null;" alt="">`;
+}
+function pct(v, max){
+  return Math.max(0, Math.min(100, Math.round((Number(v || 0) / Math.max(1, Number(max || 1))) * 100)));
+}
+function getQuestion(d){
+  const qs = Array.isArray(d.questions) ? d.questions : [];
+  const idx = Number(d.currentQuestion || 0);
+  return { questions: qs, index: idx, question: qs[idx] || {} };
+}
+function getTimeLeft(d){
+  return Math.max(0, Math.ceil(((Number(d.questionDeadline || 0)) - Date.now()) / 1000));
+}
+function setStatus(text){ statusChip.textContent = text; }
+
+function renderPlayers(players){
+  const sorted = [...players].sort((a,b)=>(b.totalScore||0)-(a.totalScore||0));
+  return `<section class="chaos-panel chaos-players-panel">
+    <div class="chaos-section-head"><h3>Participantes</h3><span>${players.length}</span></div>
+    <div class="chaos-player-wall">
+      ${sorted.map(p => `<div class="chaos-player-card">${avatarHtml(p,'chaos-avatar-md')}<strong>${escapeHtml(p.nickname || '?')}</strong><span>${p.totalScore || 0} pts</span></div>`).join('') || '<p class="small-text pulse">Esperando participantes...</p>'}
+    </div>
+  </section>`;
+}
+
+function renderRanking(players, limit = 10){
+  const ranked = [...players].sort((a,b)=>(b.totalScore||0)-(a.totalScore||0)).slice(0, limit);
+  return `<section class="chaos-panel chaos-ranking-panel">
+    <div class="chaos-section-head"><h3>Ranking</h3><span>${ranked.length}</span></div>
+    <div class="chaos-ranking-list">
+      ${ranked.map((p,i)=>`<div class="chaos-rank-row ${i===0?'top':''}">
+        <span class="rank-medal">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</span>
+        ${avatarHtml(p)}
+        <strong>${escapeHtml(p.nickname || '?')}</strong>
+        <em>${p.totalScore || 0} pts<br><small>${p.chaosCorrect || 0}/${p.chaosAnswered || 0} correctas</small></em>
+      </div>`).join('') || '<p class="small-text">Sin respuestas todavía.</p>'}
+    </div>
+  </section>`;
+}
+
+function renderInstructions(d, players){
+  setStatus('Instrucciones');
+  content.innerHTML = `<section class="chaos-panel chaos-instructions-panel">
+    <div class="chaos-big-icon">🌀</div>
+    <span class="mode-badge mode-caos">Modo Caos</span>
+    <h2>Reglas del Caos</h2>
+    <div class="chaos-rules-grid">
+      <div>🎲 <strong>Efecto random</strong><span>Cada pregunta activa un efecto distinto.</span></div>
+      <div>🌍 <strong>Global</strong><span>El mismo efecto aplica a todos.</span></div>
+      <div>⚡ <strong>Impredecible</strong><span>Puede cambiar tiempo, puntaje u opciones.</span></div>
+      <div>🏆 <strong>Ranking</strong><span>Gana quien controle mejor el caos.</span></div>
+    </div>
+    <p class="chaos-muted">Participantes conectados: ${players.length}</p>
+  </section>${renderPlayers(players)}`;
+}
+
+function renderQuestion(d, players){
+  const { questions, index, question } = getQuestion(d);
+  const left = getTimeLeft(d);
+  const total = Number(d.adjustedTime || question.timeLimit || 30);
+  const effectLabel = d.currentEffectLabel || '🌀 Efecto Caos';
+  const effectDesc = d.currentEffectDesc || 'Efecto global activo para todos.';
+  const opts = Array.isArray(question.options) ? question.options : [];
+  setStatus(`Pregunta ${(index % Math.max(1, questions.length)) + 1}/${Math.max(1, questions.length)}`);
+
+  content.innerHTML = `<section class="chaos-live-layout">
+    <div class="chaos-panel chaos-question-panel">
+      <div class="chaos-effect-banner">
+        <div><span class="mode-badge mode-caos">${escapeHtml(effectLabel)}</span><p>${escapeHtml(effectDesc)}</p></div>
+        <div class="chaos-timer ${left <= 5 ? 'urgent' : ''}">${left}</div>
+      </div>
+      <div class="chaos-timebar"><span style="width:${pct(left,total)}%"></span></div>
+      <h2>${escapeHtml(question.text || 'Pregunta')}</h2>
+      <div class="chaos-options-preview">
+        ${opts.map((op,i)=>`<div><b>${String.fromCharCode(65+i)}</b><span>${escapeHtml(op)}</span></div>`).join('') || '<div><span>Sin opciones configuradas.</span></div>'}
+      </div>
+    </div>
+    ${renderRanking(players, 8)}
+  </section>${renderPlayers(players)}`;
+}
+
+function renderRoundRanking(d, players){
+  setStatus('Ranking de ronda');
+  content.innerHTML = `<section class="chaos-panel chaos-round-panel">
+    <span class="mode-badge mode-caos">${escapeHtml(d.currentEffectLabel || '🌀 Efecto aplicado')}</span>
+    <h2>Ranking de la ronda</h2>
+    <p>${escapeHtml(d.currentEffectDesc || 'El efecto ya fue aplicado.')}</p>
+  </section>${renderRanking(players, 12)}${renderPlayers(players)}`;
+}
+
+function renderFinished(d, players){
+  setStatus((d.status === 'stopped') ? 'Detenido' : 'Finalizado');
+  const stopped = d.status === 'stopped';
+  content.innerHTML = `<section class="chaos-panel chaos-center-panel">
+    <div class="chaos-big-icon">${stopped ? '⏹️' : '🏁'}</div>
+    <span class="mode-badge mode-caos">${stopped ? 'Caos detenido' : 'Caos finalizado'}</span>
+    <h2>${stopped ? 'El Coyohoot fue detenido' : 'Ranking final'}</h2>
+  </section>${renderRanking(players, 20)}${renderPlayers(players)}`;
+}
+
+if (!quizId) {
+  setStatus('Error');
+  content.innerHTML = '<section class="chaos-panel chaos-center-panel"><h2>Falta quizId.</h2></section>';
+} else {
+  let players = [];
+  let quizData = null;
+  function draw(){
+    if (!quizData) return;
+    document.getElementById('quizTitle').textContent = quizData.name || 'Modo Caos';
+    const status = quizData.status || 'waiting';
+    if (status === 'finished' || status === 'stopped') return renderFinished(quizData, players);
+    if (quizData.roundState === 'instructions' || quizData.screenMode === 'instructions') return renderInstructions(quizData, players);
+    if (status === 'active' && !quizData.showRanking) return renderQuestion(quizData, players);
+    if (quizData.showRanking || quizData.screenMode === 'chaosRanking') return renderRoundRanking(quizData, players);
+    setStatus('Esperando inicio');
+    content.innerHTML = `<section class="chaos-panel chaos-center-panel"><div class="chaos-big-icon">⏳</div><h2>Esperando inicio</h2><p>Participantes: ${players.length}</p></section>${renderPlayers(players)}`;
+  }
+
+  db.collection('coyohoots').doc(quizId).onSnapshot(s => { quizData = s.exists ? (s.data() || {}) : null; draw(); }, e => {
+    console.error(e); setStatus('Error'); content.innerHTML = '<section class="chaos-panel chaos-center-panel"><h2>Error leyendo el Coyohoot.</h2></section>';
+  });
+  db.collection('coyohoots').doc(quizId).collection('participants').onSnapshot(s => {
+    players = [];
+    s.forEach(doc => players.push({ id: doc.id, ...doc.data() }));
+    draw();
+  }, e => console.error(e));
+  setInterval(draw, 500);
+}
+</script>
+</body>
+</html>

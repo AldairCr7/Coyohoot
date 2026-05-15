@@ -335,7 +335,7 @@
     }
   </style>
 </head>
-<body>
+<body class="presentation-screen presentation-ux">
   <div class="screen-container">
     <div class="top-bar"></div>
     <div class="screen-inner">
@@ -376,7 +376,14 @@
     function avatarOf(p){const byId=AVATARS.find(a=>a.id===Number(p.avatarId)); return p.avatarPath || (typeof p.avatar==='string' && p.avatar.includes('/') ? p.avatar : null) || (byId?byId.path:AVATARS[0].path);}
     function avatarImg(p){return `<img src="${esc(avatarOf(p))}" alt="" onerror="this.src='Avatares/Avatar1.svg'; this.onerror=null;">`;}
     function statusOf(d){return d.status || (Array.isArray(d.questions) ? 'waiting' : 'archived');}
+    function hasRankActivity(p, mode){ if(mode==='carrera') return !!p.finishedPlace; if(mode==='supervivencia') return Number(p.correctCount||0)>0 || Number(p.totalScore||0)>0 || Number(p.wrongCount||0)>0 || Number(p.livesLost||0)>0; return Number(p.totalScore||0)>0 || Number(p.correctCount||0)>0; }
     function sortRank(list, mode){return [...list].sort((a,b)=> mode==='carrera' ? ((a.finishedPlace||999)-(b.finishedPlace||999)|| (b.currentLevel||0)-(a.currentLevel||0) || (a.lastRaceAdvanceAt||9999999999999)-(b.lastRaceAdvanceAt||9999999999999)) : (mode==='supervivencia' ? ((b.lives??0)-(a.lives??0)|| (b.correctCount??0)-(a.correctCount??0)|| (b.totalScore??0)-(a.totalScore??0)) : ((b.totalScore??0)-(a.totalScore??0))));}
+    function top3PodiumHtml(list, mode){
+      const ranked=sortRank(list.filter(p=>hasRankActivity(p, mode)), mode).slice(0,3);
+      const medals=['🥇','🥈','🥉'];
+      const labels=['Primer lugar','Segundo lugar','Tercer lugar'];
+      return ranked.length ? `<div class="top3-podium">${ranked.map((p,i)=>`<div class="top3-card place-${i+1}"><div class="top3-medal">${medals[i]}</div>${avatarImg(p)}<div class="top3-name">${esc(p.nickname||'Jugador')}</div><div class="top3-score">${mode==='carrera'?(p.finishedPlace?'Meta · '+p.finishedPlace+'°':(p.currentLevel||0)+'/10'):(mode==='supervivencia'?`${p.lives??0}❤️ · ${p.correctCount??0}✓`:`${p.totalScore??0} pts`)}</div></div>`).join('')}</div>` : '<p class="hint">El Top 3 aparecerá cuando haya puntos o avance real.</p>';
+    }
     function instructions(mode){return mode==='carrera' ? ['10 niveles hasta la meta.','Cada respuesta correcta avanza 1 nivel.','Las incorrectas no retroceden.','Las preguntas se repiten hasta definir el top 3.','Cada 3 aciertos seguidos puede tocar un power up.'] : (mode==='supervivencia' ? ['Empiezan con 3 vidas.','Cada error quita 1 vida.','Cada 3 aciertos seguidos da 1 vida extra.','Sin vidas quedas eliminado.','Gana quien sobreviva mejor y acumule más.'] : ['Responde antes de que acabe el tiempo.','Acierta rápido para ganar más puntos.','Si fallas, sigues jugando.','El ranking se actualiza después de cada pregunta.','Gana quien tenga más puntos al final.']);}
     function setPill(text, extraClass){pillEl.className = `pill ${extraClass || ''}`.trim(); pillEl.textContent = text;}
     function renderAvatarWall(d){
@@ -430,15 +437,15 @@
         const power=p.powerUp ? (p.powerUp==='turbo'?'⚡ Turbo':'🚀 Impulso') : '';
         return `<div class="race-lane"><div class="race-label">${esc(p.nickname||'Jugador')}</div><div class="race-finish-line"></div><div class="race-runner" style="left:${pct}%">${avatarImg(p)}</div><div class="race-level">${place}${power?` · ${power}`:''}</div></div>`;
       }).join('') || '<div class="center empty-state"><p class="hint">Aún no hay corredores.</p></div>';
-      const winners=sorted.filter(p=>p.finishedPlace).sort((a,b)=>(a.finishedPlace||9)-(b.finishedPlace||9));
-      const podium=winners.length?`<div class="race-podium">${winners.map(p=>`<div class="race-podium-card">${p.finishedPlace===1?'🥇':p.finishedPlace===2?'🥈':'🥉'}<br>${esc(p.nickname||'Jugador')}</div>`).join('')}</div>`:'';
-      cardEl.innerHTML=`<div class="center"><div class="big section-title">Carrera</div><p class="hint">Salida · 10 niveles · Meta</p></div><div class="race-scale">${Array.from({length:10},(_,i)=>`<span>${i+1}</span>`).join('')}</div><div class="race-track">${lanes}</div>${podium}`;
+      const podium=statusOf(d)==='finished'?top3PodiumHtml(sorted,'carrera'):'<p class="hint center">El Top 3 aparecerá cuando se definan los tres lugares. Mientras tanto, sigue la carrera en la pista.</p>';
+      cardEl.innerHTML=`<div class="center"><div class="big section-title">Carrera</div><p class="hint">Salida · 10 niveles · Meta</p></div>${podium}<div class="race-scale">${Array.from({length:10},(_,i)=>`<span>${i+1}</span>`).join('')}</div><div class="race-track">${lanes}</div>`;
     }
     function renderRanking(d){
       stopScreenTimer();
       const mode=modeOf(d); setPill(statusOf(d)==='finished'?'🏁 Resultado final':'📊 Ranking');
       const rows=sortRank(participants,mode).map((p,i)=>`<div class="rank-row top${i+1}"><div class="pos">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>${avatarImg(p)}<div class="player-cell"><div class="avatar-name">${esc(p.nickname||'Jugador')}</div></div><div class="score">${mode==='carrera'?`${p.finishedPlace?'🏁 '+p.finishedPlace+'°':(p.currentLevel||0)+'/10'}`:(mode==='supervivencia'?`${p.lives??0}❤️ · ${p.correctCount??0}✓ · ${p.totalScore??0} pts`:`${p.totalScore??0} pts`)}</div></div>`).join('') || '<div class="center empty-state"><p class="hint">Sin ranking todavía.</p></div>';
-      cardEl.innerHTML=`<div class="center"><div class="big section-title">${statusOf(d)==='finished'?'Resultados':'Ranking'}</div><p class="hint">${mode==='carrera'?'Avance hacia la meta':(mode==='supervivencia'?'Vidas, aciertos y puntaje':'Puntaje acumulado')}</p></div><div class="ranking">${rows}</div>`;
+      const podium = top3PodiumHtml(participants, mode);
+      cardEl.innerHTML=`<div class="center"><div class="big section-title">${statusOf(d)==='finished'?'Resultados':'Ranking'}</div><p class="hint">${mode==='carrera'?'Avance hacia la meta':(mode==='supervivencia'?'Vidas, aciertos y puntaje':'Puntaje acumulado')}</p></div>${podium}<div class="ranking">${rows}</div>`;
     }
     function renderStopped(){stopScreenTimer(); setPill('⏹️ Detenido'); cardEl.innerHTML='<div class="center empty-state"><div class="big section-title">Coyohoot detenido</div><p class="hint">El admin cerró la sesión. Ya no se aceptan respuestas.</p></div>';}
     function render(){

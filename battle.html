@@ -89,7 +89,18 @@ function renderPairings(){ const pairings=quizData.currentPairings||[]; pairings
       <div class="battle-duel-player ${bWin?'winner':''} ${duel.loserId===duel.playerB?'loser':''}">${avatar(b)}<strong>${escapeHtml(b.nickname||duel.playerBName||'Jugador B')}</strong><span>${bWin?'✅ Ganó':(duel.bAnswered===false?'❌ Falló':'Listo')}</span></div>`; pairingsGrid.appendChild(card); });
   if(quizData.waitingPlayer){ const w=participants.find(p=>p.id===quizData.waitingPlayer.id)||quizData.waitingPlayer; const bye=document.createElement('div'); bye.className='battle-duel-card bye'; bye.innerHTML=`<div class="battle-bye-box">🛡️ ${avatar(w)} <strong>${escapeHtml(w.nickname||quizData.waitingPlayer.nickname||'Jugador')}</strong><span>BYE · espera esta ronda</span></div>`; pairingsGrid.appendChild(bye); } }
 function renderAlive(){ const arr=[...participants].sort((a,b)=>(a.battleEliminated?1:0)-(b.battleEliminated?1:0)||(b.battleWins||0)-(a.battleWins||0)||(a.nickname||'').localeCompare(b.nickname||'')); aliveGrid.innerHTML=''; if(!arr.length){aliveGrid.innerHTML='<p class="small-text">Esperando participantes...</p>'; return;} arr.forEach(p=>{ const div=document.createElement('div'); div.className='battle-alive-card'+(p.battleEliminated?' eliminated':'')+(p.battleChampion?' champion':''); div.innerHTML=`${avatar(p)}<div><strong>${escapeHtml(p.nickname||'Jugador')}</strong><span>${p.battleChampion?'👑 Campeón':(p.battleEliminated?'💀 Eliminado':(p.battleWaiting?'🛡️ Bye':'⚔️ Vivo'))} · ${p.battleWins||0}W</span></div>`; aliveGrid.appendChild(div); }); }
-function renderChampion(){ const champ=participants.find(p=>p.id===quizData.battleChampionId)||participants.find(p=>p.battleChampion); if(champ){championBox.classList.remove('hidden'); championBox.innerHTML=`<div class="battle-big-icon">👑</div><h2>Campeón</h2>${avatar(champ)}<strong>${escapeHtml(champ.nickname||quizData.battleChampionName||'Ganador')}</strong>`;} else championBox.classList.add('hidden'); }
+function battlePodium(){
+  const history = Array.isArray(quizData.battleHistory) ? quizData.battleHistory : [];
+  const champ = participants.find(p=>p.id===quizData.battleChampionId)||participants.find(p=>p.battleChampion)||null;
+  const ids = [];
+  if(champ) ids.push(champ.id);
+  const last = history[history.length-1] || null;
+  if(last && last.loserId && !ids.includes(last.loserId)) ids.push(last.loserId);
+  const candidates = [...participants].filter(p=>!ids.includes(p.id)).sort((a,b)=>(b.battleWins||0)-(a.battleWins||0)||(a.battleLosses||0)-(b.battleLosses||0)||(b.byeCount||0)-(a.byeCount||0));
+  if(candidates[0]) ids.push(candidates[0].id);
+  return ids.slice(0,3).map(id=>participants.find(p=>p.id===id)).filter(Boolean);
+}
+function renderChampion(){ const status=normalizedStatus(quizData); const state=quizData.battleState||status; const isFinal=(state==='finished'||status==='finished'||!!quizData.battleChampionId); if(!isFinal){ championBox.classList.add('hidden'); championBox.innerHTML=''; return; } const top = battlePodium(); if(top.length){championBox.classList.remove('hidden'); const medals=['🥇','🥈','🥉']; const labels=['Primer lugar','Segundo lugar','Tercer lugar']; championBox.innerHTML=`<div class="battle-big-icon">🏆</div><h2>Top 3 final</h2><div class="battle-top3-podium">${[0,1,2].map(i=>{const p=top[i]; return `<div class="battle-top3-card place-${i+1}${p?'':' battle-top3-empty'}"><div class="battle-top3-medal">${medals[i]}</div>${p?`${avatar(p)}<div class="battle-top3-name">${escapeHtml(p.nickname||'Jugador')}</div><div class="battle-top3-score">${labels[i]} · ${p.battleWins||0}W</div>`:''}</div>`;}).join('')}</div>`;} else championBox.classList.add('hidden'); }
 </script>
 </body>
 </html>

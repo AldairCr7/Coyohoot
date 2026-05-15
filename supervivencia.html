@@ -12,7 +12,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 </head>
-<body>
+<body class="participant-mode mode-supervivencia-page participant-ux">
 <div class="page-container">
     <div class="top-bar"></div>
     <div class="content">
@@ -342,7 +342,7 @@ function avatarMediaHtmlFromValues(avatarId, avatarPath, fallback, className) {
     const av = getAvatarById(avatarId || 1);
     const src = avatarPath || av.path;
     if (src && /\.(svg|png|jpe?g|webp|gif)$/i.test(src)) {
-        return `<img src="${escapeHtml(src)}" alt="" class="${className || 'avatar-img-mini'}" loading="lazy" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend','<span class=&quot;player-avatar-fallback&quot;>🐺</span>')">`;
+        return `<img src="${escapeHtml(src)}" alt="" class="${className || 'avatar-img-mini'}" loading="lazy" onerror="this.src='Avatares/Avatar1.svg'; this.onerror=null;">`;
     }
     return `<span class="player-avatar-fallback">${escapeHtml(fallback || '🐺')}</span>`;
 }
@@ -1189,20 +1189,28 @@ async function showFinalResults(data) {
 
         podioContainer.innerHTML = '';
         const podioOrder = [1, 0, 2];
+        const placeLabels = ['🥇 Primer lugar','🥈 Segundo lugar','🥉 Tercer lugar'];
         podioOrder.forEach(pos => {
             const p = participants[pos];
-            if (!p) return;
             const slot = document.createElement('div');
-            slot.className = `podio-slot pos-${pos+1}`;
-            const emojis = ['🥇','🥈','🥉'];
-            const lives = (p.lives == null) ? INITIAL_LIVES : p.lives;
-            const livesText = lives > 0 ? '❤️'.repeat(lives) : '💀';
-            slot.innerHTML = `
-                <div class="podio-avatar">${avatarMediaHtml(p, 'podio-avatar-img')}</div>
-                <div class="podio-name">${escapeHtml(p.nickname||'?')}</div>
-                <div class="podio-score">${livesText}</div>
-                <div class="podio-bar"></div>
-            `;
+            slot.className = `podio-slot pos-${pos+1}${p ? '' : ' top3-empty'}`;
+            if (p) {
+                const lives = (p.lives == null) ? INITIAL_LIVES : p.lives;
+                const livesText = lives > 0 ? '❤️'.repeat(lives) : '💀';
+                slot.innerHTML = `
+                    <div class="podio-avatar">${avatarMediaHtml(p, 'podio-avatar-img')}</div>
+                    <div class="podio-name">${escapeHtml(p.nickname||'?')}</div>
+                    <div class="podio-score">${placeLabels[pos]} · ${livesText}</div>
+                    <div class="podio-bar"></div>
+                `;
+            } else {
+                slot.innerHTML = `
+                    <div class="podio-avatar"><div class="podio-avatar-img" style="display:grid;place-items:center;font-size:2rem;">${['🥇','🥈','🥉'][pos]}</div></div>
+                    <div class="podio-name">${placeLabels[pos]}</div>
+                    <div class="podio-score">Lugar disponible</div>
+                    <div class="podio-bar"></div>
+                `;
+            }
             podioContainer.appendChild(slot);
         });
 
@@ -1230,10 +1238,10 @@ async function showFinalResults(data) {
             const myData = participants[myPos-1];
             const myLivesNow = (myData.lives == null) ? INITIAL_LIVES : myData.lives;
             let msg = '';
-            if (myLivesNow <= 0) {
-                msg = `💀 Quedaste eliminado en el puesto ${myPos}. Aciertos: ${myData.correctCount||0}. ¡Vuelve a intentarlo!`;
-            } else if (myPos === 1) msg = `🥇 ¡SOBREVIVISTE Y GANASTE! Primer lugar con ${myLivesNow} vidas. ¡Eres el Coyote Supremo! 🐺`;
-            else if (myPos === 2) msg = `🥈 ¡Segundo lugar! Sobreviviste con ${myLivesNow} vidas. Muy bien jugado.`;
+            if (myPos === 1) msg = `🥇 Primer lugar con ${myLivesNow} vidas. ¡Eres el Coyote Supremo! 🐺`;
+            else if (myLivesNow <= 0) {
+                msg = `🏆 Terminaste en el puesto ${myPos}. El podio muestra primer, segundo y tercer lugar.`;
+            } else if (myPos === 2) msg = `🥈 ¡Segundo lugar! Sobreviviste con ${myLivesNow} vidas. Muy bien jugado.`;
             else if (myPos === 3) msg = `🥉 ¡Tercer lugar! Sobreviviste con ${myLivesNow} vidas. ¡Buen trabajo!`;
             else msg = `Sobreviviste en el puesto ${myPos} con ${myLivesNow} vidas. ¡Sigue practicando!`;
             showMsg(myFinalResult, msg, (myPos <= 3 && myLivesNow > 0) ? 'success' : '');

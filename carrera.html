@@ -12,7 +12,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 </head>
-<body>
+<body class="participant-mode mode-carrera-page participant-ux">
 <div class="page-container">
   <div class="top-bar"></div>
   <div class="content">
@@ -89,7 +89,7 @@
     <div id="stepFinishedRace" class="hidden">
       <h2>🏁 Meta</h2>
       <div class="card center">
-        <div id="myRacePlace" class="big section-title"></div>
+        <div id="myRacePlace" class="race-finish-place"></div>
         <p id="myRaceMsg" class="hint"></p>
         <div class="nav-buttons mt-2"><a href="index.html" class="btn-outline">🏠 Volver al inicio</a></div>
       </div>
@@ -249,7 +249,14 @@ function showAnsweredWait(result,deadline,totalSecs,round){
   showMsg(betweenMsg,msg,result&&result.correct?'success':'warn');
   betweenTimerDisplay.textContent='Siguiente...';
 }
-function maybeGrantPowerUp(streak,currentPower){if(currentPower)return currentPower; if(streak>0 && streak%3===0 && Math.random()<0.40){return Math.random()<0.5?'turbo':'impulso';} return null;}
+function maybeGrantPowerUp(streak,currentPower){
+  if(currentPower)return currentPower;
+  if(streak>0 && streak%3===0){
+    return Math.random()<0.5?'turbo':'impulso';
+  }
+  return null;
+}
+function powerUpLabel(power){return power==='turbo'?'⚡ Turbo':(power==='impulso'?'🚀 Impulso':'');}
 async function submitAnswer(seq,qIdx,optIdx,q,deadline){
   if(activeLocalSeq!==seq)return;
   disableOptions();
@@ -261,7 +268,7 @@ async function submitAnswer(seq,qIdx,optIdx,q,deadline){
   const timeLeft=Math.max(0,timeLimit-elapsed);
   const baseScore=isCorrect?1000+Math.round((timeLeft/timeLimit)*500):0;
   try{
-    let result={correct:isCorrect,advance:0,place:null,power:null,nextSeq:seq+1};
+    let result={correct:isCorrect,advance:0,place:null,power:null,consumedPower:null,nextSeq:seq+1};
     await db.runTransaction(async t=>{
       const quizRef=db.collection('coyohoots').doc(myQuizId);
       const quizSnap=await t.get(quizRef);
@@ -309,7 +316,7 @@ async function submitAnswer(seq,qIdx,optIdx,q,deadline){
         t.set(quizRef, teamPatch, { merge: true });
       }
       t.set(respRef,{participantId:myParticipantId,nickname:myNickname,teamId:p.teamId||null,teamName:p.teamName||null,questionIdx:qIdx,round:seq,answer:optIdx,correct:isCorrect,score:baseScore,responseTime:elapsed,answeredAt:now,mode:'carrera',advance,levelAfter:level,powerUpBefore:p.powerUp||null,powerUpConsumed:consumedPower,powerUpAfter:power,finishedPlace:place});
-      result={correct:isCorrect,advance,place,power,nextSeq:seq+1};
+      result={correct:isCorrect,advance,place,power,consumedPower,nextSeq:seq+1};
     });
     const opts=optionsGrid.querySelectorAll('.option-btn');
     opts.forEach(b=>{
@@ -319,7 +326,7 @@ async function submitAnswer(seq,qIdx,optIdx,q,deadline){
     });
     answeredRounds[seq]=result;
     myLevel=Math.min(MAX_LEVELS,myLevel+(result.advance||0));
-    if(result.power)myPowerUp=result.power;
+    myPowerUp=result.power||null;
     if(result.place){
       myFinishedPlace=result.place;
       saveSession();
@@ -328,7 +335,10 @@ async function submitAnswer(seq,qIdx,optIdx,q,deadline){
     } else {
       myQuestionSeq=result.nextSeq;
       saveSession();
-      showMsg(answerFeedback,result.correct?`✅ Correcto. Avanzaste ${result.advance||1} nivel(es).`:`❌ Incorrecto. No avanzas.`,result.correct?'success':'warn');
+      let feedbackMsg = result.correct ? `✅ Correcto. Avanzaste ${result.advance||1} nivel(es).` : `❌ Incorrecto. No avanzas.`;
+      if(result.consumedPower) feedbackMsg += ` Usaste ${powerUpLabel(result.consumedPower)}.`;
+      if(result.power && !result.consumedPower) feedbackMsg += ` Ganaste un power up: ${powerUpLabel(result.power)} para tu siguiente acierto.`;
+      showMsg(answerFeedback,feedbackMsg,result.correct?'success':'warn');
       setTimeout(()=>{ if(quizCache && !myFinishedPlace) renderCurrentRaceQuestion(quizCache,true); },650);
     }
   }catch(e){
@@ -342,7 +352,7 @@ async function submitAnswer(seq,qIdx,optIdx,q,deadline){
   }
 }
 function showRaceFinished(place){stopTimer(); showOnly(stepFinishedRace); myRacePlace.textContent=place===1?'🥇 1° lugar':place===2?'🥈 2° lugar':place===3?'🥉 3° lugar':`🏁 Lugar ${place}`; myRaceMsg.textContent='Ya llegaste a la meta. No recibirás más preguntas.';}
-function showFinalOrWaiting(d){if(myFinishedPlace)showRaceFinished(myFinishedPlace); else {showOnly(stepFinishedRace); myRacePlace.textContent='🏁 Carrera finalizada'; myRaceMsg.textContent='La carrera terminó porque ya se definieron los tres primeros lugares.';} clearSession();}
+function showFinalOrWaiting(d){if(myFinishedPlace)showRaceFinished(myFinishedPlace); else {showOnly(stepFinishedRace); myRacePlace.textContent='🏆 Top 3 definido'; myRaceMsg.textContent='La pantalla muestra primer, segundo y tercer lugar. Gracias por participar.';} clearSession();}
 (function init(){const params=new URLSearchParams(location.search); const urlQuizId=params.get('quizId'); const pending=getPendingJoin(); if(!urlQuizId&&pending&&pending.mode===MY_MODE){selectQuiz(pending.quizId,pending.quizName||'',{forceJoinForm:true}); return;} if(!urlQuizId&&pending&&pending.mode&&pending.mode!==MY_MODE){location.href=`${targetPage(pending.mode)}?quizId=${encodeURIComponent(pending.quizId)}&quizName=${encodeURIComponent(pending.quizName||'')}&join=1`; return;} if(urlQuizId){const urlQuizName=params.get('quizName')||''; const force=params.get('join')==='1'; if(urlQuizName||force)selectQuiz(urlQuizId,urlQuizName,{forceJoinForm:force}); db.collection('coyohoots').doc(urlQuizId).get().then(s=>{if(!s.exists){showOnly(stepSelectQuiz); loadQuizList(); return;} const d=s.data()||{}; if(modeOf(d)!==MY_MODE){redirectToCorrectMode(d,urlQuizId);return;} if(['finished','stopped','archived'].includes(normalizedStatus(d))||d.isStopped){showOnly(stepSelectQuiz);loadQuizList();return;} if(!(urlQuizName||force))selectQuiz(urlQuizId,d.name||'',{}); else selectedQuizName.textContent='📝 '+(d.name||urlQuizName||'Coyohoot seleccionado');}).catch(()=>{if(!(urlQuizName||force)){showOnly(stepSelectQuiz);loadQuizList();}}); return;} const saved=getSavedSession(); if(saved&&saved.quizId&&saved.participantId&&saved.mode===MY_MODE){myQuizId=saved.quizId; myNickname=saved.nickname; myParticipantId=saved.participantId; mySessionId=saved.sessionId||''; answeredRounds=saved.answeredRounds||{}; selectedAvatarId=saved.avatarId||1; myFinishedPlace=saved.finishedPlace||null; myQuestionSeq=saved.raceQuestionSeq||0; startGameListener(myQuizId); return;} showOnly(stepSelectQuiz); loadQuizList();})();
 </script>
 </body>

@@ -72,10 +72,17 @@ function renderPlayers(players){
   </section>`;
 }
 
+function hasChaosActivity(p){ return Number(p.totalScore||0)>0 || Number(p.chaosAnswered||0)>0 || Number(p.chaosCorrect||0)>0; }
 function renderRanking(players, limit = 10){
-  const ranked = [...players].sort((a,b)=>(b.totalScore||0)-(a.totalScore||0)).slice(0, limit);
+  const ordered = [...players].filter(hasChaosActivity).sort((a,b)=>(b.totalScore||0)-(a.totalScore||0));
+  const ranked = ordered.slice(0, limit);
+  const medals = ['🥇','🥈','🥉'];
+  const labels = ['Primer lugar','Segundo lugar','Tercer lugar'];
+  const podium = ranked.length ? `<div class="chaos-top3-podium">${ranked.slice(0,3).map((p,i)=>`<div class="chaos-top3-card place-${i+1}"><div class="chaos-top3-medal">${medals[i]}</div>${avatarHtml(p)}<div class="chaos-top3-name">${escapeHtml(p.nickname || '?')}</div><div class="chaos-top3-score">${p.totalScore || 0} pts</div></div>`).join('')}</div>` : '<p class="small-text pulse">El Top 3 aparecerá cuando alguien consiga puntos.</p>';
   return `<section class="chaos-panel chaos-ranking-panel">
-    <div class="chaos-section-head"><h3>Ranking</h3><span>${ranked.length}</span></div>
+    <div class="chaos-section-head"><h3>Top 3</h3><span>1° · 2° · 3°</span></div>
+    ${podium}
+    <div class="chaos-section-head"><h3>Ranking completo</h3><span>${ranked.length}</span></div>
     <div class="chaos-ranking-list">
       ${ranked.map((p,i)=>`<div class="chaos-rank-row ${i===0?'top':''}">
         <span class="rank-medal">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</span>

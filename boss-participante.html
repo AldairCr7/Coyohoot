@@ -12,7 +12,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 </head>
-<body>
+<body class="participant-mode mode-boss-page participant-ux">
 <div class="page-container">
   <div class="top-bar"></div>
   <div class="content">
@@ -251,7 +251,7 @@ async function submitAnswer(seq,qIdx,optIdx,q,deadline,timedOut){
     } else showMsg(answerFeedback,'⏹️ La batalla ya fue cerrada.','warn');
   }
 }
-function showFinal(d){showOnly(stepFinished); const outcome=d.bossOutcome||d.bossState; finalBadge.textContent=outcome==='victory'?'🎉 Victoria':'💀 Derrota'; finalMsg.textContent=outcome==='victory'?'El equipo derrotó al boss.':'El boss derrotó al equipo.'; const dmg=myStats.damageDealt||0, ans=myStats.bossAnswered||0, cor=myStats.bossCorrect||0, acc=ans?Math.round((cor/ans)*100):0; myContribution.textContent=`Tu contribución: ${dmg} daño · ${cor}/${ans} correctas · ${acc}% precisión`; clearSession();}
+function showFinal(d){showOnly(stepFinished); finalBadge.textContent='🏆 Resultados finales'; finalMsg.textContent='La batalla terminó. Revisa el Top 3 de contribución en la pantalla Boss.'; const dmg=myStats.damageDealt||0, ans=myStats.bossAnswered||0, cor=myStats.bossCorrect||0, acc=ans?Math.round((cor/ans)*100):0; myContribution.textContent=`Tu contribución: ${dmg} daño · ${cor}/${ans} correctas · ${acc}% precisión`; clearSession();}
 (function init(){const params=new URLSearchParams(location.search); const urlQuizId=params.get('quizId'); const pending=getPendingJoin(); if(!urlQuizId&&pending&&pending.mode===MY_MODE){selectQuiz(pending.quizId,pending.quizName||'',{forceJoinForm:true});return;} if(!urlQuizId&&pending&&pending.mode&&pending.mode!==MY_MODE){location.href=`${targetPage(pending.mode)}?quizId=${encodeURIComponent(pending.quizId)}&quizName=${encodeURIComponent(pending.quizName||'')}&join=1`;return;} if(urlQuizId){const urlQuizName=params.get('quizName')||''; const force=params.get('join')==='1'; if(urlQuizName||force)selectQuiz(urlQuizId,urlQuizName,{forceJoinForm:force}); db.collection('coyohoots').doc(urlQuizId).get().then(s=>{if(!s.exists){showOnly(stepSelectQuiz);loadQuizList();return;} const d=s.data()||{}; if(modeOf(d)!==MY_MODE){redirectToCorrectMode(d,urlQuizId);return;} if(['finished','stopped','archived'].includes(normalizedStatus(d))||d.isStopped){showOnly(stepSelectQuiz);loadQuizList();return;} if(!(urlQuizName||force))selectQuiz(urlQuizId,d.name||'',{}); else selectedQuizName.textContent='📝 '+(d.name||urlQuizName||'Coyohoot seleccionado');}).catch(()=>{if(!(urlQuizName||force)){showOnly(stepSelectQuiz);loadQuizList();}});return;} const saved=getSavedSession(); if(saved&&saved.quizId&&saved.participantId&&saved.mode===MY_MODE){myQuizId=saved.quizId; myNickname=saved.nickname; myParticipantId=saved.participantId; mySessionId=saved.sessionId||''; selectedAvatarId=saved.avatarId||1; myQuestionSeq=saved.bossQuestionSeq||0; startGameListener(myQuizId);return;} showOnly(stepSelectQuiz); loadQuizList();})();
 </script>
 </body>

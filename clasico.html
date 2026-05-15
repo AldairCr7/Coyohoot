@@ -12,7 +12,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 </head>
-<body>
+<body class="participant-mode mode-clasico-page participant-ux">
 <div class="page-container">
     <div class="top-bar"></div>
     <div class="content">
@@ -293,7 +293,7 @@ function avatarMediaHtmlFromValues(avatarId, avatarPath, fallback, className) {
     const av = getAvatarById(avatarId || 1);
     const src = avatarPath || av.path;
     if (src && /\.(svg|png|jpe?g|webp|gif)$/i.test(src)) {
-        return `<img src="${escapeHtml(src)}" alt="" class="${className || 'avatar-img-mini'}" loading="lazy" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend','<span class=&quot;player-avatar-fallback&quot;>🐺</span>')">`;
+        return `<img src="${escapeHtml(src)}" alt="" class="${className || 'avatar-img-mini'}" loading="lazy" onerror="this.src='Avatares/Avatar1.svg'; this.onerror=null;">`;
     }
     return `<span class="player-avatar-fallback">${escapeHtml(fallback || '🐺')}</span>`;
 }
@@ -833,6 +833,10 @@ function disableOptions() {
     optionsGrid.querySelectorAll('.option-btn').forEach(btn => btn.disabled = true);
 }
 
+function hasClassicScore(pd) {
+    return Number(pd && pd.totalScore || 0) > 0 || Number(pd && pd.correctCount || 0) > 0;
+}
+
 // ═══════════════════════════════════════════
 // RANKING POR PREGUNTA
 // ═══════════════════════════════════════════
@@ -862,7 +866,9 @@ async function showQuestionRanking(data, qIdx) {
             if (pos===1) tr.className='top-1';
             else if (pos===2) tr.className='top-2';
             else if (pos===3) tr.className='top-3';
-            const medal = pos===1?'🥇':pos===2?'🥈':pos===3?'🥉':pos+'.';
+            const hasScore = hasClassicScore(pd);
+            const medal = hasScore ? (pos===1?'🥇':pos===2?'🥈':pos===3?'🥉':pos+'.') : '—';
+            if (!hasScore) tr.className = '';
             tr.innerHTML = `<td>${medal}</td><td>${playerNameHtml(pd, d.id===myParticipantId)}</td><td>${pd.totalScore||0}</td>`;
             rankingTableBody.appendChild(tr);
             pos++;
@@ -924,21 +930,31 @@ async function showFinalResults(data) {
 
         const participants = [];
         snap.forEach(d => participants.push({ id: d.id, ...d.data() }));
+        const podiumParticipants = participants.filter(hasClassicScore);
 
         podioContainer.innerHTML = '';
         const podioOrder = [1, 0, 2];
+        const placeLabels = ['🥇 Primer lugar','🥈 Segundo lugar','🥉 Tercer lugar'];
         podioOrder.forEach(pos => {
-            const p = participants[pos];
+            const p = podiumParticipants[pos];
             if (!p) return;
             const slot = document.createElement('div');
             slot.className = `podio-slot pos-${pos+1}`;
-            const emojis = ['🥇','🥈','🥉'];
-            slot.innerHTML = `
-                <div class="podio-avatar">${avatarMediaHtml(p, 'podio-avatar-img')}</div>
-                <div class="podio-name">${escapeHtml(p.nickname||'?')}</div>
-                <div class="podio-score">${p.totalScore||0} pts</div>
-                <div class="podio-bar"></div>
-            `;
+            if (p) {
+                slot.innerHTML = `
+                    <div class="podio-avatar">${avatarMediaHtml(p, 'podio-avatar-img')}</div>
+                    <div class="podio-name">${escapeHtml(p.nickname||'?')}</div>
+                    <div class="podio-score">${placeLabels[pos]} · ${p.totalScore||0} pts</div>
+                    <div class="podio-bar"></div>
+                `;
+            } else {
+                slot.innerHTML = `
+                    <div class="podio-avatar"><div class="podio-avatar-img" style="display:grid;place-items:center;font-size:2rem;">${['🥇','🥈','🥉'][pos]}</div></div>
+                    <div class="podio-name">${placeLabels[pos]}</div>
+                    <div class="podio-score">Lugar disponible</div>
+                    <div class="podio-bar"></div>
+                `;
+            }
             podioContainer.appendChild(slot);
         });
 
@@ -949,7 +965,9 @@ async function showFinalResults(data) {
             if (pos===1) tr.className='top-1';
             else if (pos===2) tr.className='top-2';
             else if (pos===3) tr.className='top-3';
-            const medal = pos===1?'🥇':pos===2?'🥈':pos===3?'🥉':pos+'.';
+            const hasScore = hasClassicScore(p);
+            const medal = hasScore ? (pos===1?'🥇':pos===2?'🥈':pos===3?'🥉':pos+'.') : '—';
+            if (!hasScore) tr.className = '';
             const isMe = p.id === myParticipantId;
             tr.innerHTML = `<td>${medal}</td><td>${playerNameHtml(p, isMe)}</td><td>${p.totalScore||0}</td>`;
             finalRankingBody.appendChild(tr);
@@ -960,10 +978,10 @@ async function showFinalResults(data) {
         if (myPos > 0) {
             const myData = participants[myPos-1];
             let msg = '';
-            if (myPos === 1) msg = `🥇 ¡GANASTE! Primer lugar con ${myData.totalScore} puntos. ¡Eres el Coyote Supremo! 🐺`;
-            else if (myPos === 2) msg = `🥈 ¡Segundo lugar! ${myData.totalScore} puntos. Muy bien jugado.`;
-            else if (myPos === 3) msg = `🥉 ¡Tercer lugar! ${myData.totalScore} puntos. ¡Buen trabajo!`;
-            else msg = `Quedaste en el puesto ${myPos} con ${myData.totalScore} puntos. ¡Sigue practicando!`;
+            if (myPos === 1 && hasClassicScore(myData)) msg = `🥇 Primer lugar con ${myData.totalScore} puntos. ¡Eres el Coyote Supremo! 🐺`;
+            else if (myPos === 2 && hasClassicScore(myData)) msg = `🥈 ¡Segundo lugar! ${myData.totalScore} puntos. Muy bien jugado.`;
+            else if (myPos === 3 && hasClassicScore(myData)) msg = `🥉 ¡Tercer lugar! ${myData.totalScore} puntos. ¡Buen trabajo!`;
+            else msg = `🏆 Terminaste en el puesto ${myPos} con ${myData.totalScore} puntos. El podio muestra primer, segundo y tercer lugar.`;
             showMsg(myFinalResult, msg, myPos <= 3 ? 'success' : '');
         }
 

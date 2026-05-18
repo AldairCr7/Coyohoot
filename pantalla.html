@@ -372,7 +372,7 @@
     let screenTimerInterval = null;
     const AVATARS = [1,2,3,4,5,6,7,8].map(n => ({ id:n, name:['El Vice','El Presi','La Secre','Nacho','Coyote','Hacker','Ninja','Astro'][n-1], path:`Avatares/Avatar${n}.svg` }));
     function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-    function modeOf(d){const raw=(d && (d.gameMode || d.mode || d.modo) || '').toString().toLowerCase(); if(raw==='supervivencia'||raw==='survival')return 'supervivencia'; if(raw==='carrera'||raw==='race')return 'carrera'; return 'clasico';}
+    function modeOf(d){const raw=(d && (d.activeMode || d.currentMode || d.modeId || d.gameMode || d.mode || d.modo) || '').toString().toLowerCase(); if(raw==='supervivencia'||raw==='survival')return 'supervivencia'; if(raw==='carrera'||raw==='race')return 'carrera'; return 'clasico';}
     function avatarOf(p){const byId=AVATARS.find(a=>a.id===Number(p.avatarId)); return p.avatarPath || (typeof p.avatar==='string' && p.avatar.includes('/') ? p.avatar : null) || (byId?byId.path:AVATARS[0].path);}
     function avatarImg(p){return `<img src="${esc(avatarOf(p))}" alt="" onerror="this.src='Avatares/Avatar1.svg'; this.onerror=null;">`;}
     function statusOf(d){return d.status || (Array.isArray(d.questions) ? 'waiting' : 'archived');}

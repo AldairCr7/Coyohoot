@@ -347,7 +347,7 @@ function shouldShowStopAction(d) {
     return st === 'active' || d.isRunning === true || d.roundState === 'instructions' || d.roundState === 'playing' || d.showRanking === true;
 }
 function quizModeOf(d) {
-    const raw = (d.gameMode || d.mode || d.modo || '').toString().toLowerCase();
+    const raw = (d.activeMode || d.currentMode || d.modeId || d.gameMode || d.mode || d.modo || '').toString().toLowerCase();
     if (raw === 'supervivencia' || raw === 'survival') return 'supervivencia';
     if (raw === 'carrera' || raw === 'race') return 'carrera';
     if (raw === 'boss' || raw === 'bossfight' || raw === 'boss_fight' || raw === 'jefe') return 'boss';
@@ -448,6 +448,8 @@ async function savePlaySetup({ silent=false } = {}) {
     await db.collection('coyohoots').doc(selectedQuizId).set({
         gameMode: mode,
         modeId: mode,
+        activeMode: mode,
+        currentMode: mode,
         playFormat: fmt,
         teamSize: fmt === 'teams' ? size : null,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -556,8 +558,15 @@ if (modeSelector) {
     });
 }
 
-if (controlModeSelect) controlModeSelect.addEventListener('change', updatePlaySetupUI);
-document.querySelectorAll('input[name="controlPlayFormat"]').forEach(r => r.addEventListener('change', updatePlaySetupUI));
+if (controlModeSelect) controlModeSelect.addEventListener('change', () => {
+    updatePlaySetupUI();
+    // Guardado inmediato: evita que participantes entren al HTML de un modo viejo.
+    if (selectedQuizId) savePlaySetup({ silent:true }).catch(e => console.warn('No se pudo guardar modo:', e));
+});
+document.querySelectorAll('input[name="controlPlayFormat"]').forEach(r => r.addEventListener('change', () => {
+    updatePlaySetupUI();
+    if (selectedQuizId) savePlaySetup({ silent:true }).catch(e => console.warn('No se pudo guardar formato:', e));
+}));
 if (teamSizeInput) teamSizeInput.addEventListener('input', updatePlaySetupUI);
 if (applyPlaySetupBtn) applyPlaySetupBtn.addEventListener('click', async () => {
     try { await savePlaySetup(); }
@@ -1644,7 +1653,7 @@ startQuizBtn.addEventListener('click', async () => {
             screenMode: 'instructions',
             screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        showMsg(controlMsg, `📖 Instrucciones de ${getModeLabel(quizModeOf(d))} enviadas a los participantes.`, 'success');
+        showMsg(controlMsg, `📖 Instrucciones de ${getModeLabel(controlModeSelect.value)} enviadas a los participantes.`, 'success');
     } catch(e) {
         showMsg(controlMsg, '❌ Error al preparar: ' + e.message, 'error');
     }

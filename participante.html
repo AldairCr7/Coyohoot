@@ -64,7 +64,7 @@ function escapeHtml(str) {
     return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 function modeOf(d) {
-    const raw = (d.gameMode || d.mode || d.modo || '').toString().toLowerCase();
+    const raw = (d.activeMode || d.currentMode || d.modeId || d.gameMode || d.mode || d.modo || '').toString().toLowerCase();
     if (raw === 'supervivencia' || raw === 'survival') return 'supervivencia';
     if (raw === 'carrera' || raw === 'race') return 'carrera';
     if (raw === 'boss' || raw === 'bossfight' || raw === 'boss_fight' || raw === 'jefe') return 'boss';

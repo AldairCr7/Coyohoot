@@ -41,9 +41,19 @@
 
       <div class="input-group password-field-clean">
         <label for="adminPass">Contraseña</label>
-        <div class="password-input-wrap-clean">
+        <div class="admin-password-control">
           <input id="adminPass" type="password" placeholder="Contraseña" autocomplete="current-password" minlength="4">
-          <button id="togglePasswordBtn" type="button" aria-label="Mostrar u ocultar contraseña">👁️</button>
+          <button id="togglePasswordBtn" class="admin-password-toggle" type="button" aria-label="Mostrar contraseña" title="Mostrar contraseña">
+            <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M2.2 12s3.6-6.5 9.8-6.5S21.8 12 21.8 12 18.2 18.5 12 18.5 2.2 12 2.2 12Z"/>
+              <circle cx="12" cy="12" r="3.2"/>
+            </svg>
+            <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 3l18 18"/>
+              <path d="M10.6 5.7A10.4 10.4 0 0 1 12 5.6c6.2 0 9.8 6.4 9.8 6.4a18 18 0 0 1-3 3.8"/>
+              <path d="M6.4 7.3A18.5 18.5 0 0 0 2.2 12S5.8 18.4 12 18.4a10.5 10.5 0 0 0 4-.8"/>
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -156,7 +166,8 @@
     }
 
     function setLoggedIn(user) {
-      localStorage.setItem('coyohoot_admin_session', JSON.stringify(user));
+      localStorage.removeItem('coyohoot_admin_session');
+      sessionStorage.setItem('coyohoot_admin_session', JSON.stringify(user));
       loginPanel.classList.add('hidden');
       adminPanel.classList.remove('hidden');
       adminWelcomeTitle.textContent = `Bienvenido, ${user.username}`;
@@ -164,6 +175,7 @@
     }
 
     function logout() {
+      sessionStorage.removeItem('coyohoot_admin_session');
       localStorage.removeItem('coyohoot_admin_session');
       adminPanel.classList.add('hidden');
       loginPanel.classList.remove('hidden');
@@ -241,23 +253,47 @@
     togglePasswordBtn.addEventListener('click', () => {
       const show = adminPass.type === 'password';
       adminPass.type = show ? 'text' : 'password';
-      togglePasswordBtn.textContent = show ? '🙈' : '👁️';
+      togglePasswordBtn.classList.toggle('is-visible', show);
+      togglePasswordBtn.setAttribute('aria-label', show ? 'Ocultar contraseña' : 'Mostrar contraseña');
+      togglePasswordBtn.setAttribute('title', show ? 'Ocultar contraseña' : 'Mostrar contraseña');
     });
     adminPass.addEventListener('keydown', e => { if (e.key === 'Enter') (authMode === 'register' ? registerAdmin() : loginAdmin()); });
     registerKey.addEventListener('keydown', e => { if (e.key === 'Enter') registerAdmin(); });
     logoutBtn.addEventListener('click', logout);
 
+    // Mantener sesión SOLO mientras la pestaña siga abierta.
+    // Si vuelves desde Crear/Controlar por el logo, sessionStorage sigue vivo y no pide login otra vez.
+    // Si cierras la pestaña, sessionStorage se pierde y admin.html vuelve a pedir login.
+    // Nunca usamos localStorage para que no quede loggeado de forma permanente en el dispositivo.
     try {
-      const raw = localStorage.getItem('coyohoot_admin_session');
-      if (raw) {
-        const saved = JSON.parse(raw);
-        if (saved && saved.uid && saved.username) setLoggedIn(saved);
+      localStorage.removeItem('coyohoot_admin_session');
+      const rawSession = sessionStorage.getItem('coyohoot_admin_session');
+      if (rawSession) {
+        const savedUser = JSON.parse(rawSession);
+        if (savedUser && savedUser.uid) {
+          setLoggedIn(savedUser);
+        } else {
+          throw new Error('Sesión inválida');
+        }
+      } else {
+        adminPanel.classList.add('hidden');
+        loginPanel.classList.remove('hidden');
+        setAuthMode('login');
       }
     } catch (_) {
-      localStorage.removeItem('coyohoot_admin_session');
+      sessionStorage.removeItem('coyohoot_admin_session');
+      adminPanel.classList.add('hidden');
+      loginPanel.classList.remove('hidden');
+      setAuthMode('login');
     }
 
-    setAuthMode('login');
+    // Ir al inicio público debe cerrar la sesión de admin de esta pestaña.
+    document.querySelectorAll('a[href="index.html"], a[href="./index.html"]').forEach(link => {
+      link.addEventListener('click', () => {
+        sessionStorage.removeItem('coyohoot_admin_session');
+        localStorage.removeItem('coyohoot_admin_session');
+      });
+    });
   })();
   </script>
 </body>

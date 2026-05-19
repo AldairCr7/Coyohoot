@@ -613,7 +613,8 @@ function setAuthMode(mode) {
 }
 function setLoggedIn(user) {
     currentUser = user;
-    localStorage.setItem('coyohoot_admin_session', JSON.stringify(user));
+    localStorage.removeItem('coyohoot_admin_session');
+    sessionStorage.setItem('coyohoot_admin_session', JSON.stringify(user));
     currentUserLabel.textContent = `Sesión: ${user.username}`;
     loginPanel.classList.add('hidden');
     adminPanel.classList.remove('hidden');
@@ -651,7 +652,8 @@ function clearAdminRuntime() {
 function logoutAdmin() {
     clearAdminRuntime();
     currentUser = null;
-    localStorage.removeItem('coyohoot_admin_session');
+    sessionStorage.removeItem('coyohoot_admin_session');
+        localStorage.removeItem('coyohoot_admin_session');
     adminPanel.classList.add('hidden');
     loginPanel.classList.remove('hidden');
     document.getElementById('adminUser').value = '';
@@ -743,11 +745,12 @@ logoutBtnTop.addEventListener('click', logoutAdmin);
 (function restoreAdminSession(){
     setAuthMode('login');
     try {
-        const raw = localStorage.getItem('coyohoot_admin_session');
+        const raw = sessionStorage.getItem('coyohoot_admin_session');
         if (!raw) return;
         const saved = JSON.parse(raw);
         if (saved && saved.uid && saved.username) setLoggedIn(saved);
     } catch(e) {
+        sessionStorage.removeItem('coyohoot_admin_session');
         localStorage.removeItem('coyohoot_admin_session');
     }
 })();

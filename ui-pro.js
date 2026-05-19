@@ -49,7 +49,7 @@
   }
   function adminHomePolish(){
     if(document.body.dataset.adminRoute !== 'home') return;
-    const user = (()=>{try{return JSON.parse(localStorage.getItem('coyohoot_admin_session')||'null')}catch{return null}})();
+    const user = (()=>{try{return JSON.parse(sessionStorage.getItem('coyohoot_admin_session')||'null')}catch{return null}})();
     const label = $('#currentUserLabel'); if(label && user && user.username) label.textContent = `Bienvenido, ${user.username}`;
   }
   function statusWatch(){

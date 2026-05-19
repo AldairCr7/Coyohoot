@@ -4287,3 +4287,92 @@ body.admin-home-clean {
   .admin-welcome-clean { justify-content: center; text-align: center; }
   .admin-home-choice { align-items: center; text-align: center; min-height: 160px; }
 }
+
+/* === Fix final login admin: campo de contraseña limpio y típico === */
+body.admin-home-clean .admin-auth-card {
+  overflow: visible !important;
+}
+body.admin-home-clean .admin-auth-card .input-group {
+  width: 100%;
+  display: grid;
+  gap: .45rem;
+  margin-bottom: .9rem;
+}
+body.admin-home-clean .admin-auth-card label {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-weight: 900;
+  letter-spacing: .01em;
+  color: #f8fafc;
+}
+body.admin-home-clean .admin-auth-card input {
+  min-height: 52px;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(2,6,23,.62);
+  color: #fff;
+  padding: .85rem 1rem;
+  font-size: 1rem;
+  outline: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+body.admin-home-clean .admin-auth-card input:focus {
+  border-color: rgba(251,191,36,.78);
+  box-shadow: 0 0 0 4px rgba(251,191,36,.16), inset 0 1px 0 rgba(255,255,255,.08);
+}
+body.admin-home-clean .admin-password-control {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+body.admin-home-clean .admin-password-control input {
+  padding-right: 3.7rem !important;
+}
+body.admin-home-clean .admin-password-toggle {
+  position: absolute !important;
+  right: .5rem !important;
+  top: 50% !important;
+  bottom: auto !important;
+  transform: translateY(-50%) !important;
+  width: 42px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  padding: 0 !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  border-radius: 13px !important;
+  border: 1px solid rgba(255,255,255,.16) !important;
+  background: rgba(255,255,255,.08) !important;
+  color: #f8fafc !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  z-index: 3;
+}
+body.admin-home-clean .admin-password-toggle:hover {
+  background: rgba(251,191,36,.18) !important;
+  border-color: rgba(251,191,36,.45) !important;
+}
+body.admin-home-clean .admin-password-toggle svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+body.admin-home-clean .admin-password-toggle .eye-closed { display: none; }
+body.admin-home-clean .admin-password-toggle.is-visible .eye-open { display: none; }
+body.admin-home-clean .admin-password-toggle.is-visible .eye-closed { display: block; }
+body.admin-home-clean .password-input-wrap-clean,
+body.admin-home-clean .password-input-wrap-clean button {
+  all: unset;
+}
+@media (max-width: 640px) {
+  body.admin-home-clean .admin-home-shell { padding-inline: .85rem; }
+  body.admin-home-clean .auth-headline { align-items: flex-start; }
+  body.admin-home-clean .admin-auth-actions { grid-template-columns: 1fr; }
+}

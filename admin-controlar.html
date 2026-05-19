@@ -46,7 +46,7 @@
             <button id="toggleAuthModeBtn" class="btn-outline full-w" style="margin-top:0.7rem;">Necesito registrarme</button>
             <div id="loginMsg" class="message hidden"></div>
             <div class="nav-buttons mt-1">
-                <a href="index.html" class="btn-outline">🏠 Inicio</a>
+                <a href="index.html" class="btn-outline" data-admin-nav="index.html">🏠 Inicio</a>
             </div>
         </div>
 
@@ -70,9 +70,9 @@
             </div>
 
             <div class="admin-quick-links">
-                <a class="quick-link-card" href="admin-crear.html"><span>📝</span><strong>Crear quiz</strong><small>Editor limpio dedicado.</small></a>
-                <a class="quick-link-card" href="admin-controlar.html"><span>🎮</span><strong>Controlar partida</strong><small>Modo, equipos y pantalla.</small></a>
-                <a class="quick-link-card" href="admin-jugadores.html"><span>🏆</span><strong>Jugadores y ranking</strong><small>Monitoreo en vivo.</small></a>
+                <a class="quick-link-card" href="admin-crear.html" data-admin-nav="admin-crear.html"><span>📝</span><strong>Crear quiz</strong><small>Editor limpio dedicado.</small></a>
+                <a class="quick-link-card" href="admin-controlar.html" data-admin-nav="admin-controlar.html"><span>🎮</span><strong>Controlar partida</strong><small>Modo, equipos y pantalla.</small></a>
+                <a class="quick-link-card" href="admin-jugadores.html" data-admin-nav="admin-jugadores.html"><span>🏆</span><strong>Jugadores y ranking</strong><small>Monitoreo en vivo.</small></a>
             </div>
 
             <div class="admin-menu-grid metal-tabs">
@@ -95,7 +95,7 @@
 
             <!-- SECCIÓN: Crear / editar quiz -->
             <div id="sectionEditor" class="card">
-                <div class="section-title-row"><div><span class="metal-kicker">FORJA DE PREGUNTAS</span><h3>📝 Crear / editar quiz</h3></div><a class="mini-meta" href="admin-controlar.html">Ir a controlar →</a></div>
+                <div class="section-title-row"><div><span class="metal-kicker">FORJA DE PREGUNTAS</span><h3>📝 Crear / editar quiz</h3></div><a class="mini-meta" href="admin-controlar.html" data-admin-nav="admin-controlar.html">Ir a controlar →</a></div>
                 <div class="input-group mt-1">
                     <label>Nombre del quiz</label>
                     <input type="text" id="quizNameInput" placeholder="Ej: Quiz de Redes">
@@ -200,7 +200,7 @@
 
             <!-- SECCIÓN: Participantes en vivo -->
             <div id="sectionParticipants" class="card hidden">
-                <div class="section-title-row"><div><span class="metal-kicker">EN VIVO</span><h3>👥 Participantes (<span id="participantCount">0</span>)</h3></div><a class="mini-meta" href="admin-controlar.html">Volver al control →</a></div>
+                <div class="section-title-row"><div><span class="metal-kicker">EN VIVO</span><h3>👥 Participantes (<span id="participantCount">0</span>)</h3></div><a class="mini-meta" href="admin-controlar.html" data-admin-nav="admin-controlar.html">Volver al control →</a></div>
                 <div id="participantChips" class="participant-chips mt-1"></div>
             </div>
 
@@ -216,7 +216,7 @@
             </div>
 
             <div class="nav-buttons">
-                <a href="index.html" class="btn-outline">🏠 Inicio</a>
+                <a href="index.html" class="btn-outline" data-admin-nav="index.html">🏠 Inicio</a>
                 <button id="logoutBtn" class="btn-outline">🚪 Salir</button>
             </div>
         </div>
@@ -341,6 +341,12 @@ function emptyEl(el) { el.innerHTML = ''; }
 function normalizedStatus(d) {
     return d.status || (Array.isArray(d.questions) ? 'waiting' : 'archived');
 }
+function getStableSessionIdForStart(data = {}) {
+    // Al iniciar una partida NO se debe cambiar sessionId si ya hay participantes esperando.
+    // Cambiarlo expulsa a navegadores que ya se unieron con el sessionId anterior.
+    return data.sessionId || '';
+}
+
 function shouldShowStopAction(d) {
     const st = normalizedStatus(d);
     if (st === 'stopped' || st === 'finished' || st === 'archived') return false;
@@ -764,10 +770,10 @@ function buildQuestionBlock(idx) {
             <textarea class="q-text" rows="2" placeholder="¿Cuál es...?">${escapeHtml(q.text||'')}</textarea>
         </div>
         <div class="options-inputs">
-            <input class="q-opt" data-opt="0" placeholder="Opción A" value="${escapeHtml(q.options[0]||'')}">
-            <input class="q-opt" data-opt="1" placeholder="Opción B" value="${escapeHtml(q.options[1]||'')}">
-            <input class="q-opt" data-opt="2" placeholder="Opción C" value="${escapeHtml(q.options[2]||'')}">
-            <input class="q-opt" data-opt="3" placeholder="Opción D" value="${escapeHtml(q.options[3]||'')}">
+            <label class="option-editor-field"><span class="option-letter">A</span><input class="q-opt" data-opt="0" placeholder="Escribe la opción A" value="${escapeHtml(q.options[0]||'')}"></label>
+            <label class="option-editor-field"><span class="option-letter">B</span><input class="q-opt" data-opt="1" placeholder="Escribe la opción B" value="${escapeHtml(q.options[1]||'')}"></label>
+            <label class="option-editor-field"><span class="option-letter">C</span><input class="q-opt" data-opt="2" placeholder="Escribe la opción C" value="${escapeHtml(q.options[2]||'')}"></label>
+            <label class="option-editor-field"><span class="option-letter">D</span><input class="q-opt" data-opt="3" placeholder="Escribe la opción D" value="${escapeHtml(q.options[3]||'')}"></label>
         </div>
         <div class="correct-select mt-1">
             <span style="font-size:0.8rem; color:#94a3b8;">Correcta:</span>
@@ -1404,6 +1410,7 @@ function renderGameStatus(data, id) {
     openStageBtn.classList.add('hidden');
     showAvatarWallBtn.classList.add('hidden');
     if (selectedQuizId) openStageBtn.classList.remove('hidden');
+    if (selectedQuizId && !['stopped','finished','archived'].includes(status)) stopQuizBtn.classList.remove('hidden');
 
     if (status === 'waiting') {
         if (roundState === 'avatarWall') {
@@ -1677,7 +1684,7 @@ beginGameBtn.addEventListener('click', async () => {
     d.playFormat = latest.playFormat || d.playFormat;
     d.teamSize = latest.teamSize || d.teamSize;
     if (quizModeOf(d) === 'battle') {
-        const battleSessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        const battleSessionId = getStableSessionIdForStart(latest);
         await resetBattleParticipants(selectedQuizId, battleSessionId);
         const players = await getBattleAlivePlayers(selectedQuizId);
         if (players.length < 2) {
@@ -1715,7 +1722,7 @@ beginGameBtn.addEventListener('click', async () => {
         return;
     }
     if (quizModeOf(d) === 'boss') {
-        const bossSessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        const bossSessionId = getStableSessionIdForStart(latest);
         await resetBossParticipants(selectedQuizId, bossSessionId);
         const playersSnap = await db.collection('coyohoots').doc(selectedQuizId).collection('participants').get();
         const players = Math.max(1, playersSnap.size || 1);
@@ -1743,7 +1750,7 @@ beginGameBtn.addEventListener('click', async () => {
         return;
     }
     if (quizModeOf(d) === 'caos') {
-        const chaosSessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        const chaosSessionId = getStableSessionIdForStart(latest);
         await resetChaosParticipants(selectedQuizId, chaosSessionId);
         await db.collection('coyohoots').doc(selectedQuizId).set({ sessionId: chaosSessionId, chaosState: 'running', effectHistory: [], screenMode: 'chaos' }, { merge: true });
         await launchQuestion(selectedQuizId, 0, d.questions, { sessionId: chaosSessionId, chaosState: 'running', screenMode: 'chaos' });
@@ -1752,7 +1759,7 @@ beginGameBtn.addEventListener('click', async () => {
     }
     let raceExtra = {};
     if (quizModeOf(d) === 'carrera') {
-        const raceSessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        const raceSessionId = getStableSessionIdForStart(latest);
         await resetRaceParticipants(selectedQuizId, raceSessionId);
         raceExtra = { currentRound: 0, raceState: 'running', raceWinners: [], maxLevels: 10, sessionId: raceSessionId };
         await db.collection('coyohoots').doc(selectedQuizId).set(raceExtra, { merge: true });
@@ -1771,7 +1778,7 @@ showRankBtn.addEventListener('click', async () => {
         if (quizModeOf(d) === 'carrera') {
             const rw = await getRaceWinnersCount(selectedQuizId);
             if (rw.count >= Math.min(3, rw.total || 3)) {
-                await db.collection('coyohoots').doc(selectedQuizId).update({ status: 'finished', raceState: 'finished', showRanking: true, isRunning: false, screenMode: 'finished', screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(), finishedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                await finishAndAutoReset('🏁 Carrera finalizada: podio definido.');
                 return;
             }
         }
@@ -1781,6 +1788,14 @@ showRankBtn.addEventListener('click', async () => {
     }
 });
 
+
+async function finishAndAutoReset(message) {
+    if (!selectedQuizId) return;
+    stopAdminTimer();
+    await cleanSession(selectedQuizId);
+    if (controlMsg) showMsg(controlMsg, message + ' Sesión reiniciada automáticamente y lista para otra partida.', 'success');
+}
+
 nextQBtn.addEventListener('click', async () => {
     if (!selectedQuizId) return;
     const snap = await db.collection('coyohoots').doc(selectedQuizId).get();
@@ -1788,14 +1803,7 @@ nextQBtn.addEventListener('click', async () => {
     if (quizModeOf(d) === 'carrera') {
         const rw = await getRaceWinnersCount(selectedQuizId);
         if (rw.count >= Math.min(3, rw.total || 3)) {
-            await db.collection('coyohoots').doc(selectedQuizId).update({
-                status: 'finished', raceState: 'finished', showRanking: true,
-                questionDeadline: Date.now(), isRunning: false, isStopped: false,
-                roundState: 'finished', screenMode: 'finished',
-                screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                finishedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            showMsg(controlMsg, '🏁 Carrera finalizada: ya está definido el podio.', 'success');
+            await finishAndAutoReset('🏁 Carrera finalizada: ya está definido el podio.');
             return;
         }
         const nextIdx = ((d.currentQuestion ?? 0) + 1) % (d.questions || []).length;
@@ -1807,14 +1815,7 @@ nextQBtn.addEventListener('click', async () => {
     if (quizModeOf(d) === 'caos') {
         const nextIdxChaos = (d.currentQuestion ?? 0) + 1;
         if (nextIdxChaos >= (d.questions||[]).length) {
-            await db.collection('coyohoots').doc(selectedQuizId).update({
-                status: 'finished', chaosState: 'finished', showRanking: true,
-                questionDeadline: Date.now(), isRunning: false, isStopped: false,
-                roundState: 'finished', screenMode: 'finished',
-                screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                finishedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            showMsg(controlMsg, '🌀 Caos finalizado.', 'success');
+            await finishAndAutoReset('🌀 Caos finalizado.');
         } else {
             await launchQuestion(selectedQuizId, nextIdxChaos, d.questions, { chaosState: 'running', screenMode: 'chaos' });
             showMsg(controlMsg, `🌀 Pregunta caótica ${nextIdxChaos+1} iniciada.`, 'success');
@@ -1823,19 +1824,7 @@ nextQBtn.addEventListener('click', async () => {
     }
     const nextIdx = (d.currentQuestion ?? 0) + 1;
     if (nextIdx >= (d.questions||[]).length) {
-        await db.collection('coyohoots').doc(selectedQuizId).update({
-            status: 'finished',
-            showRanking: true,
-            currentQuestion: d.currentQuestion,
-            questionDeadline: Date.now(),
-            isRunning: false,
-            isStopped: false,
-            roundState: 'finished',
-            screenMode: 'finished',
-            screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            finishedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        showMsg(controlMsg, '🏁 Quiz finalizado.', 'success');
+        await finishAndAutoReset('🏁 Quiz finalizado.');
     } else {
         await launchQuestion(selectedQuizId, nextIdx, d.questions);
         showMsg(controlMsg, `▶️ Pregunta ${nextIdx+1} iniciada.`, 'success');
@@ -2029,9 +2018,8 @@ async function launchQuestion(quizId, qIdx, questions, extra = {}) {
         screenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         ...extra
     };
-    if (qIdx === 0 && !update.sessionId && !((extra.currentRound || 0) > 0)) {
-        update.sessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-    }
+    // No generar un sessionId nuevo al iniciar preguntas: los participantes ya unidos
+    // conservan el sessionId actual del Coyohoot. Cambiarlo aquí los saca de la partida.
     await db.collection('coyohoots').doc(quizId).update(update);
 }
 
@@ -2046,5 +2034,9 @@ function initAdmin() {
     renderEditor();
 }
 </script>
+    <script src="ui-enhancements.js"></script>
+<script src="ui-pro.js"></script>
+<script src="admin-buttons-fix.js"></script>
+<script src="admin-nav-final.js"></script>
 </body>
 </html>

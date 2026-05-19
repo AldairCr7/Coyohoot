@@ -102,5 +102,7 @@ function battlePodium(){
 }
 function renderChampion(){ const status=normalizedStatus(quizData); const state=quizData.battleState||status; const isFinal=(state==='finished'||status==='finished'||!!quizData.battleChampionId); if(!isFinal){ championBox.classList.add('hidden'); championBox.innerHTML=''; return; } const top = battlePodium(); if(top.length){championBox.classList.remove('hidden'); const medals=['🥇','🥈','🥉']; const labels=['Primer lugar','Segundo lugar','Tercer lugar']; championBox.innerHTML=`<div class="battle-big-icon">🏆</div><h2>Top 3 final</h2><div class="battle-top3-podium">${[0,1,2].map(i=>{const p=top[i]; return `<div class="battle-top3-card place-${i+1}${p?'':' battle-top3-empty'}"><div class="battle-top3-medal">${medals[i]}</div>${p?`${avatar(p)}<div class="battle-top3-name">${escapeHtml(p.nickname||'Jugador')}</div><div class="battle-top3-score">${labels[i]} · ${p.battleWins||0}W</div>`:''}</div>`;}).join('')}</div>`;} else championBox.classList.add('hidden'); }
 </script>
+    <script src="ui-enhancements.js"></script>
+<script src="ui-pro.js"></script>
 </body>
 </html>

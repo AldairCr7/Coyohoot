@@ -72,5 +72,7 @@ function render(){ if(!quizData){return;} els.title.textContent=quizData.name||'
 if(!quizId){els.sub.textContent='Falta quizId en la URL';}
 else{db.collection('coyohoots').doc(quizId).onSnapshot(s=>{if(!s.exists){els.sub.textContent='No existe el Coyohoot';return;} quizData=s.data()||{}; render();}); db.collection('coyohoots').doc(quizId).collection('participants').onSnapshot(s=>{participants=[]; s.forEach(d=>participants.push({id:d.id,...d.data()})); render();});}
 </script>
+    <script src="ui-enhancements.js"></script>
+<script src="ui-pro.js"></script>
 </body>
 </html>

@@ -172,5 +172,7 @@ async function submitAnswer(duelId,duelSeq,answerIndex,q,timeout=false){ if(subm
 async function tryResume(){ const params=new URLSearchParams(location.search); const qid=params.get('quizId'); const qname=params.get('quizName')||''; const join=params.get('join')==='1'; const pending=getPendingJoin(); const saved=getSavedSession(); if(saved&&saved.quizId&&saved.mode===MY_MODE&&!join){myQuizId=saved.quizId; myParticipantId=saved.participantId; myNickname=saved.nickname; mySessionId=saved.sessionId||''; selectedAvatarId=saved.avatarId||1; waitingNickname.textContent=myNickname||''; startGameListener(myQuizId); return;} if(qid){selectQuiz(qid,qname,{forceJoinForm:join}); return;} if(pending&&pending.mode===MY_MODE){selectQuiz(pending.quizId,pending.quizName||'',{forceJoinForm:true}); return;} loadQuizList(); }
 tryResume();
 </script>
+    <script src="ui-enhancements.js"></script>
+<script src="ui-pro.js"></script>
 </body>
 </html>

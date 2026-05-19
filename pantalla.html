@@ -466,5 +466,7 @@
       db.collection('coyohoots').doc(quizId).collection('participants').onSnapshot(s=>{participants=[];s.forEach(doc=>participants.push({id:doc.id,...doc.data()})); render();});
     } else render();
   </script>
+    <script src="ui-enhancements.js"></script>
+<script src="ui-pro.js"></script>
 </body>
 </html>
